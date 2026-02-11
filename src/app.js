@@ -38,6 +38,8 @@ app.use("/api/order", require("./routes/order/order.routes"))
 // // This line is crucial: It makes http://localhost:5000/uploads/... accessible
 // app.use('/uploads', express.static(path.join(__dirname, 'public/uploads')));
 
+app.use("/api/wishlist", require("./routes/wishlist/wishlist.routes"))
+
 
 app.use((err, req, res, next) => {
   console.error("GLOBAL ERROR:", err);

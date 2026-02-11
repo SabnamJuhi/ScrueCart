@@ -1,3 +1,5 @@
+const { Order } = require("../../models");
+
 exports.updateOrderStatus = async (req, res) => {
 try {
 const { orderNumber } = req.params;

@@ -29,6 +29,13 @@ const CartItem = require("./orders/cart.model");
 const Order = require('./orders/order.model');
 const OrderItem = require('./orders/orderItem.model');
 const OrderAddress = require('./orders/orderAddress.model');
+const UserAddress = require("./orders/userAddress.model")
+
+//wishlist
+const Wishlist = require("./wishlist.model");
+
+
+
 
 
 // SubCategory Relations
@@ -112,8 +119,8 @@ Order.belongsTo(User, { foreignKey: "userId" });
 Order.hasMany(OrderItem, { foreignKey: "orderId", onDelete: "CASCADE" });
 OrderItem.belongsTo(Order, { foreignKey: "orderId" });
 
-Order.hasOne(OrderAddress, { foreignKey: "orderId", onDelete: "CASCADE" });
-OrderAddress.belongsTo(Order, { foreignKey: "orderId" });
+Order.hasOne(OrderAddress, { foreignKey: "orderId", as: "address", onDelete: "CASCADE" });
+OrderAddress.belongsTo(Order, { foreignKey: "orderId", as: "order", });
 
 // Important for historical tracking
 Product.hasMany(OrderItem, { foreignKey: "productId", onDelete: "CASCADE" });
@@ -122,6 +129,33 @@ OrderItem.belongsTo(Product, { foreignKey: "productId" });
 CartItem.belongsTo(VariantSize, { foreignKey: "sizeId", as: "variantSize" });
 
 VariantSize.hasMany(CartItem, { foreignKey: "sizeId", as: "cartItems" });
+
+
+
+// --- ORDER ITEM PRODUCT VARIANT RELATIONS (MISSING FIX) ---
+
+// OrderItem → ProductVariant
+ProductVariant.hasMany(OrderItem, { foreignKey: "variantId" });
+OrderItem.belongsTo(ProductVariant, { foreignKey: "variantId" });
+
+// OrderItem → VariantSize
+VariantSize.hasMany(OrderItem, { foreignKey: "sizeId" });
+OrderItem.belongsTo(VariantSize, { foreignKey: "sizeId" });
+
+User.hasMany(UserAddress, { foreignKey: "userId", as: "addresses" });
+UserAddress.belongsTo(User, { foreignKey: "userId" });
+
+
+//wishlist
+
+User.hasMany(Wishlist, { foreignKey: "userId" });
+Wishlist.belongsTo(User, { foreignKey: "userId" });
+
+Product.hasMany(Wishlist, { foreignKey: "productId" });
+Wishlist.belongsTo(Product, { foreignKey: "productId" });
+
+ProductVariant.hasMany(Wishlist, { foreignKey: "variantId" });
+Wishlist.belongsTo(ProductVariant, { foreignKey: "variantId" });
 
 
 module.exports = {
@@ -146,4 +180,5 @@ module.exports = {
   Order, 
   OrderItem, 
   OrderAddress,
+  Wishlist
 }

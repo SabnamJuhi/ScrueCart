@@ -183,6 +183,7 @@
 
 const ProductReview = require("../../models/products/productReview.model")
 const ProductRating = require("../../models/products/productRating.model")
+const OrderItem = require("../../models/orders/orderItem.model");
 const { calculateRatingFromReviews } = require("../../services/rating.service")
 const sequelize = require("../../config/db")
 
@@ -208,53 +209,174 @@ const syncProductRating = async (productId, transaction) => {
  * CREATE REVIEW
  */
 exports.createReview = async (req, res) => {
-    const t = await sequelize.transaction();
-    try {
-        const { productId, userId, userName, rating, title, reviewText, isVerifiedBuyer } = req.body;
+  const t = await sequelize.transaction();
 
-        if (!productId || !rating) {
-            return res.status(400).json({ message: "productId and rating are required" });
-        }
+  try {
+    const { productId, rating, title, reviewText } = req.body;
 
-        // Create the review
-        const review = await ProductReview.create({
-            productId, userId, userName, rating, title, reviewText, isVerifiedBuyer
-        }, { transaction: t });
+    const userId = req.user.id;
+    const userName = req.user.name;
 
-        // Update the rating summary table
-        await syncProductRating(productId, t);
-
-        await t.commit();
-        res.status(201).json({ message: "Review added and rating updated", data: review });
-    } catch (error) {
-        await t.rollback();
-        res.status(500).json({ message: "Failed to create review", error: error.message });
+    if (!productId || !rating) {
+      await t.rollback();
+      return res.status(400).json({ message: "productId and rating required" });
     }
-}
+
+    // 🚫 prevent duplicate review
+    const existingReview = await ProductReview.findOne({
+      where: { productId, userId },
+      transaction: t,
+    });
+
+    if (existingReview) {
+      await t.rollback();
+      return res.status(400).json({
+        success: false,
+        message: "You already reviewed this product",
+      });
+    }
+
+    // ✅ VERIFIED BUYER CHECK (JOIN with Order)
+    const deliveredOrderItem = await OrderItem.findOne({
+      where: { productId },
+      include: [
+        {
+          model: require("../../models/orders/order.model"),
+          as: "Order",
+          where: {
+            userId,
+            status: "delivered",
+          },
+          attributes: [], // no need to fetch order data
+        },
+      ],
+      transaction: t,
+    });
+
+    const review = await ProductReview.create(
+      {
+        productId,
+        userId,
+        userName,
+        rating,
+        title,
+        reviewText,
+        isVerifiedBuyer: !!deliveredOrderItem,
+      },
+      { transaction: t }
+    );
+
+    await syncProductRating(productId, t);
+
+    await t.commit();
+
+    res.status(201).json({
+      success: true,
+      message: "Review added",
+      data: review,
+    });
+  } catch (error) {
+    await t.rollback();
+
+    res.status(500).json({
+      success: false,
+      message: "Failed to create review",
+      error: error.message,
+    });
+  }
+};
+
 
 /**
  * UPDATE REVIEW
  */
+// exports.updateReview = async (req, res) => {
+//     const t = await sequelize.transaction();
+//     try {
+//         const { id } = req.params;
+//         const review = await ProductReview.findByPk(id);
+
+//         if (!review) return res.status(404).json({ message: "Review not found" });
+
+//         await review.update(req.body, { transaction: t });
+
+//         // Recalculate and sync
+//         await syncProductRating(review.productId, t);
+
+//         await t.commit();
+//         res.status(200).json({ message: "Review and rating updated", data: review });
+//     } catch (error) {
+//         await t.rollback();
+//         res.status(500).json({ message: "Failed to update review", error: error.message });
+//     }
+// }
+
+/**
+ * UPDATE REVIEW (industry-standard)
+ */
 exports.updateReview = async (req, res) => {
-    const t = await sequelize.transaction();
-    try {
-        const { id } = req.params;
-        const review = await ProductReview.findByPk(id);
+  const t = await sequelize.transaction();
 
-        if (!review) return res.status(404).json({ message: "Review not found" });
+  try {
+    const { id } = req.params;
+    const userId = req.user.id;
 
-        await review.update(req.body, { transaction: t });
+    // find review inside transaction
+    const review = await ProductReview.findByPk(id, { transaction: t });
 
-        // Recalculate and sync
-        await syncProductRating(review.productId, t);
-
-        await t.commit();
-        res.status(200).json({ message: "Review and rating updated", data: review });
-    } catch (error) {
-        await t.rollback();
-        res.status(500).json({ message: "Failed to update review", error: error.message });
+    if (!review) {
+      await t.rollback();
+      return res.status(404).json({ success: false, message: "Review not found" });
     }
-}
+
+    // ✅ ownership check
+    if (review.userId !== userId) {
+      await t.rollback();
+      return res.status(403).json({
+        success: false,
+        message: "You are not allowed to update this review",
+      });
+    }
+
+    // ✅ allow only safe editable fields
+    const { rating, title, reviewText } = req.body;
+
+    // validate rating if provided
+    if (rating !== undefined && (rating < 1 || rating > 5)) {
+      await t.rollback();
+      return res.status(400).json({
+        success: false,
+        message: "Rating must be between 1 and 5",
+      });
+    }
+
+    // update only allowed fields
+    await review.update(
+      { rating, title, reviewText },
+      { transaction: t }
+    );
+
+    // 🔄 recalc rating summary
+    await syncProductRating(review.productId, t);
+
+    await t.commit();
+
+    res.status(200).json({
+      success: true,
+      message: "Review updated successfully",
+      data: review,
+    });
+  } catch (error) {
+    await t.rollback();
+
+    res.status(500).json({
+      success: false,
+      message: "Failed to update review",
+      error: error.message,
+    });
+  }
+};
+
 
 /**
  * DELETE REVIEW

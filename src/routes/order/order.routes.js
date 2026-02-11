@@ -10,6 +10,12 @@ const { getCompletedOrders } = require('../../controllers/USER — My Orders API
 const { cancelOrder } = require('../../controllers/USER — My Orders API/cancelOrder.controller');
 const { returnOrder } = require('../../controllers/USER — My Orders API/returnOrder.controller');
 const { completeRefund } = require('../../controllers/ADMIN-Update Order Status API/completeRefund.controller');
+const { markDeliveredCOD } = require('../../controllers/COD-DeliveryPaymentCompletion APIs/markDeliveredCOD.controller');
+const { collectCODPayment } = require('../../controllers/COD-DeliveryPaymentCompletion APIs/collectCODPayment.controller');
+const { getAdminActiveOrders } = require('../../controllers/ADMIN-Get-Orders-History/getAdminActiveOrders.controller');
+const { getAdminOrderHistory } = require('../../controllers/ADMIN-Get-Orders-History/getAdminOrderHistory.controller');
+const { getOrderHistory } = require('../../controllers/USER — My Orders API/getOrderHistory.controller');
+const { addAddress, getUserAddresses, updateAddress, deleteAddress, setDefaultAddress, getAddressById } = require('../../controllers/order/Address.CRUD.controller');
 
 
 
@@ -28,15 +34,47 @@ router.post("/payment/icici/test", orderController.iciciTestCallback);
 router.patch("/admin/:orderNumber/status", updateOrderStatus)
 router.post("/admin/:orderNumber/send-otp", sendDeliveryOtp )
 router.post("/admin/verify-delivery-otp", verifyDeliveryOtp)
-router.post("admin/:orderNumber/refund", completeRefund)
+router.post("/admin/:orderNumber/refund", completeRefund)
 
 //USER — My Orders API
-router.get("/active", getActiveOrders)
-router.get("/completed", getCompletedOrders)
+router.get("/active", protected,getActiveOrders)
+router.get("/completed",protected,  getCompletedOrders)
+router.get("/history", protected,  getOrderHistory)
+
+//cancel/return
 router.post("/:orderNumber/cancel", cancelOrder)
 router.post("/:orderNumber/return", returnOrder)
 
+// COD flow
+router.patch("/admin/:orderNumber/mark-delivered", markDeliveredCOD);
+router.patch("/admin/:orderNumber/collect-cod", collectCODPayment);
+
+//Admin-get-Orders
+// ADMIN — Orders viewing
+router.get("/admin/active", getAdminActiveOrders);
+router.get("/admin/history", getAdminOrderHistory);
+
+//Adress APIS
+router.post("/user/address", protected, addAddress);
+router.get("/user/address", protected, getUserAddresses);
+router.get("/user/address/:id", protected, getAddressById)
+router.put("/user/address/:id", protected, updateAddress);
+router.delete("/user/address/:id", protected, deleteAddress);
+router.patch("/user/address/default/:id", protected, setDefaultAddress);
+
+
 module.exports = router;
+
+
+
+
+
+// 1. User creates order → status: pending, paymentStatus: unpaid
+// 2. ICICI success → status: confirmed, paymentStatus: paid
+// 3. Admin ships → status: shipped
+// 4. Delivered → status: delivered + OTP sent
+// 5. OTP verified → status: completed
+
 
 
 

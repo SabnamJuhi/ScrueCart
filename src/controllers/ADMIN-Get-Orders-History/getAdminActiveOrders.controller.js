@@ -1,14 +1,41 @@
-// const { Order } = require("../../models");
+// const { Order, OrderAddress, OrderItem, User } = require("../../models");
 
-// exports.getCompletedOrders = async (req, res) => {
-// const orders = await Order.findAll({
-// where: { userId: req.user.id, status: "delivered" },
-// order: [["createdAt", "DESC"]],
-// });
+// exports.getAdminActiveOrders = async (req, res) => {
+//   try {
+//     const orders = await Order.findAll({
+//       where: {
+//         status: ["confirmed", "packed", "shipped", "out_for_delivery"],
+//       },
+//       include: [
+//         {
+//           model: OrderAddress,
+//           as: "address", // ✅ REQUIRED alias
+//         },
+//         {
+//           model: OrderItem,
+//         },
+//         {
+//           model: User,
+//           attributes: ["id", "userName", "email"],
+//         },
+//       ],
+//       order: [["createdAt", "DESC"]],
+//     });
 
-
-// res.json({ success: true, data: orders });
+//     res.json({
+//       success: true,
+//       total: orders.length,
+//       data: orders,
+//     });
+//   } catch (err) {
+//     res.status(500).json({
+//       success: false,
+//       message: err.message,
+//     });
+//   }
 // };
+
+
 
 
 
@@ -16,6 +43,7 @@
 //   Order,
 //   OrderAddress,
 //   OrderItem,
+//   User,
 //   Product,
 //   ProductPrice,
 //   ProductVariant,
@@ -23,17 +51,20 @@
 //   VariantSize,
 // } = require("../../models");
 
-// exports.getCompletedOrders = async (req, res) => {
+// exports.getAdminActiveOrders = async (req, res) => {
 //   try {
 //     const orders = await Order.findAll({
 //       where: {
-//         userId: req.user.id,
-//         status: "delivered",
+//         status: ["confirmed", "packed", "shipped", "out_for_delivery"],
 //       },
 //       include: [
 //         {
 //           model: OrderAddress,
 //           as: "address",
+//         },
+//         {
+//           model: User,
+//           attributes: ["id", "userName", "email"],
 //         },
 //         {
 //           model: OrderItem,
@@ -55,7 +86,7 @@
 //       order: [["createdAt", "DESC"]],
 //     });
 
-//     // 🔹 Format response same as other order APIs
+//     // 🔹 Transform response like cart structure
 //     const formattedOrders = orders.map((order) => {
 //       const items = order.OrderItems.map((item) => {
 //         const sellingPrice = item.Product?.price?.sellingPrice || 0;
@@ -83,6 +114,12 @@
 //         status: order.status,
 //         createdAt: order.createdAt,
 
+//         customer: {
+//           id: order.User?.id,
+//           name: order.User?.userName,
+//           email: order.User?.email,
+//         },
+
 //         address: order.address,
 
 //         items,
@@ -105,6 +142,7 @@
 
 
 
+
 const {
   Order,
   OrderAddress,
@@ -117,38 +155,34 @@ const {
   VariantSize,
 } = require("../../models");
 
-exports.getCompletedOrders = async (req, res) => {
+exports.getAdminActiveOrders = async (req, res) => {
   try {
     const orders = await Order.findAll({
       where: {
-        userId: req.user.id,
-        status: "delivered",
+        status: ["confirmed", "packed", "shipped", "out_for_delivery"],
       },
       include: [
         {
-          model: User,
-          attributes: ["id", "userName", "email"],
-        },
-        {
           model: OrderAddress,
           as: "address",
+        },
+        {
+          model: User,
+          attributes: ["id", "userName", "email"],
         },
         {
           model: OrderItem,
           include: [
             {
               model: Product,
-              attributes: ["id", "title"],
               include: [{ model: ProductPrice, as: "price" }],
             },
             {
               model: ProductVariant,
-              attributes: ["id", "colorName"],
               include: [{ model: VariantImage, as: "images", limit: 1 }],
             },
             {
               model: VariantSize,
-              attributes: ["id", "size"],
             },
           ],
         },
@@ -156,9 +190,12 @@ exports.getCompletedOrders = async (req, res) => {
       order: [["createdAt", "DESC"]],
     });
 
+    /**
+     * 🔹 Transform response
+     */
     const formattedOrders = orders.map((order) => {
       const items = order.OrderItems.map((item) => {
-        const price = item.Product?.price?.sellingPrice || 0;
+        const sellingPrice = item.Product?.price?.sellingPrice || 0;
 
         return {
           orderItemId: item.id,
@@ -171,14 +208,16 @@ exports.getCompletedOrders = async (req, res) => {
             size: item.VariantSize?.size || null,
           },
 
-          price,
+          price: sellingPrice,
           quantity: item.quantity,
-          total: price * item.quantity,
+          total: sellingPrice * item.quantity,
         };
       });
 
       return {
-        // 🔹 FULL ORDER TABLE DATA
+        /**
+         * 🆕 FULL ORDER TABLE DETAILS
+         */
         orderDetails: {
           id: order.id,
           orderNumber: order.orderNumber,
@@ -207,28 +246,34 @@ exports.getCompletedOrders = async (req, res) => {
           userId: order.userId,
         },
 
-        // 🔹 CUSTOMER INFO
+        /**
+         * 👤 CUSTOMER INFO
+         */
         customer: {
           id: order.User?.id,
           name: order.User?.userName,
           email: order.User?.email,
         },
 
-        // 🔹 ADDRESS
-        address: order.address || null,
+        /**
+         * 📍 ADDRESS SNAPSHOT
+         */
+        address: order.address,
 
-        // 🔹 ITEMS
+        /**
+         * 🛒 ITEMS (cart-like structure)
+         */
         items,
       };
     });
 
-    return res.json({
+    res.json({
       success: true,
       total: formattedOrders.length,
       data: formattedOrders,
     });
   } catch (err) {
-    return res.status(500).json({
+    res.status(500).json({
       success: false,
       message: err.message,
     });

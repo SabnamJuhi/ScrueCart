@@ -1,14 +1,39 @@
-// const { Order } = require("../../models");
+// const { Order, OrderItem, OrderAddress } = require("../../models");
 
-// exports.getCompletedOrders = async (req, res) => {
-// const orders = await Order.findAll({
-// where: { userId: req.user.id, status: "delivered" },
-// order: [["createdAt", "DESC"]],
-// });
+// exports.getOrderHistory = async (req, res) => {
+//   try {
+//     const orders = await Order.findAll({
+//       where: {
+//         userId: req.user.id,
+//         status: ["delivered", "completed", "cancelled", "refunded"],
+//       },
+//       include: [
+//         {
+//           model: OrderItem,
+//         },
+//         {
+//           model: OrderAddress,
+//           as: "address", // use alias if defined in association
+//         },
+//       ],
+//       order: [["createdAt", "DESC"]],
+//     });
 
-
-// res.json({ success: true, data: orders });
+//     return res.json({
+//       success: true,
+//       total: orders.length,
+//       data: orders,
+//     });
+//   } catch (err) {
+//     return res.status(500).json({
+//       success: false,
+//       message: err.message,
+//     });
+//   }
 // };
+
+
+
 
 
 
@@ -23,12 +48,12 @@
 //   VariantSize,
 // } = require("../../models");
 
-// exports.getCompletedOrders = async (req, res) => {
+// exports.getOrderHistory = async (req, res) => {
 //   try {
 //     const orders = await Order.findAll({
 //       where: {
 //         userId: req.user.id,
-//         status: "delivered",
+//         status: ["delivered", "completed", "cancelled", "refunded"],
 //       },
 //       include: [
 //         {
@@ -55,7 +80,7 @@
 //       order: [["createdAt", "DESC"]],
 //     });
 
-//     // 🔹 Format response same as other order APIs
+//     // 🔹 Format response consistent with other order APIs
 //     const formattedOrders = orders.map((order) => {
 //       const items = order.OrderItems.map((item) => {
 //         const sellingPrice = item.Product?.price?.sellingPrice || 0;
@@ -89,19 +114,18 @@
 //       };
 //     });
 
-//     res.json({
+//     return res.json({
 //       success: true,
 //       total: formattedOrders.length,
 //       data: formattedOrders,
 //     });
 //   } catch (err) {
-//     res.status(500).json({
+//     return res.status(500).json({
 //       success: false,
 //       message: err.message,
 //     });
 //   }
 // };
-
 
 
 
@@ -117,12 +141,12 @@ const {
   VariantSize,
 } = require("../../models");
 
-exports.getCompletedOrders = async (req, res) => {
+exports.getOrderHistory = async (req, res) => {
   try {
     const orders = await Order.findAll({
       where: {
         userId: req.user.id,
-        status: "delivered",
+        status: ["delivered", "completed", "cancelled", "refunded"],
       },
       include: [
         {

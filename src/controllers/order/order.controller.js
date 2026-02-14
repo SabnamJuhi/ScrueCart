@@ -1,163 +1,3 @@
-// const {
-//   Order,
-//   OrderItem,
-//   OrderAddress,
-//   CartItem,
-//   Product,
-//   ProductPrice,
-//   ProductVariant,
-//   sequelize,
-// } = require("../../models");
-// // const { generateOrderNumber } = require("../../utils/helpers");
-// // const Razorpay = require("razorpay");
-// const { generateOrderNumber } = require("../../utils/helpers");
-// const { encrypt, generateChecksum } = require("../../utils/iciciCrypto");
-
-// const razorpay = new Razorpay({
-//   key_id: process.env.RAZORPAY_KEY_ID,
-//   key_secret: process.env.RAZORPAY_KEY_SECRET,
-// });
-
-// exports.placeOrder = async (req, res) => {
-//   const t = await sequelize.transaction();
-
-//   try {
-//     const userId = req.user.id;
-//     const { shippingAddress, paymentMethod } = req.body;
-
-//     // 1. Fetch Cart Items - Use distinct IDs to prevent join duplication
-//     const cartItems = await CartItem.findAll({
-//       where: { userId },
-//       include: [
-//         {
-//           model: Product,
-//           as: "product",
-//           include: [{ model: ProductPrice, as: "price" }],
-//         },
-//         { model: ProductVariant, as: "variant" },
-//       ],
-//       transaction: t,
-//     });
-
-//     if (!cartItems.length) throw new Error("Cart is empty");
-
-//     // 2. RESET MATH - Ensure we start from zero
-//     let subtotal = 0;
-
-//     // Use a Set to track processed Cart IDs to prevent double-counting
-//     const processedIds = new Set();
-
-//     for (const item of cartItems) {
-//       if (processedIds.has(item.id)) continue; // Skip if already counted
-
-//       const itemPrice = parseFloat(item.product.price.sellingPrice) || 0;
-//       const itemQty = parseInt(item.quantity);
-
-//       subtotal += itemPrice * itemQty;
-//       processedIds.add(item.id);
-//     }
-
-//     const taxAmount = Math.round(subtotal * 0.12);
-//     const shippingFee = subtotal > 5000 ? 0 : 150;
-//     const totalAmount = subtotal + taxAmount + shippingFee;
-
-//     // 3. Create Order Header (Fixing the 0.00 taxAmount bug)
-//     const order = await Order.create(
-//       {
-//         userId,
-//         orderNumber: generateOrderNumber(),
-//         subtotal: subtotal,
-//         taxAmount: taxAmount, // This was 0.00 in your SQL, now it's fixed
-//         shippingFee: shippingFee,
-//         totalAmount: totalAmount,
-//         status: "pending",
-//         paymentMethod,
-//         paymentStatus: "unpaid",
-//       },
-//       { transaction: t },
-//     );
-
-//     // 4. Create Items
-//     const orderItemsData = cartItems.map((item) => ({
-//       orderId: order.id,
-//       productId: item.productId,
-//       productName: item.product.title,
-//       quantity: item.quantity,
-//       priceAtPurchase: item.product.price.sellingPrice,
-//       totalPrice: item.product.price.sellingPrice * item.quantity,
-//       variantInfo: { color: item.variant.colorName, size: item.selectedSize },
-//     }));
-
-//     await OrderItem.bulkCreate(orderItemsData, { transaction: t });
-
-//     await OrderAddress.create(
-//       { orderId: order.id, ...shippingAddress },
-//       { transaction: t },
-//     );
-
-//     await t.commit();
-//     const options = {
-//       amount: totalAmount * 100, // Razorpay works in paise (70000 INR = 7000000 paise)
-//       currency: "INR",
-//       receipt: order.orderNumber,
-//     };
-
-//     const razorpayOrder = await razorpay.orders.create(options);
-
-//     res.status(201).json({
-//       success: true,
-//       orderNumber: order.orderNumber,
-//       razorpayOrderId: razorpayOrder.id,
-//       amount: razorpayOrder.amount,
-//       keyId: process.env.RAZORPAY_KEY_ID,
-//     });
-//     // res.status(201).json({
-//     //     success: true, orderNumber: order.orderNumber, totalAmount
-//     // });
-//   } catch (error) {
-//     await t.rollback();
-//     res.status(500).json({ success: false, message: error.message });
-//   }
-// };
-
-// // STEP 2: Finalize Order (Webhook from Payment Gateway)
-// exports.handlePaymentWebhook = async (req, res) => {
-//   const t = await sequelize.transaction();
-//   try {
-//     const { orderNumber, transactionId } = req.body;
-//     const order = await Order.findOne({
-//       where: { orderNumber, status: "pending" },
-//       include: [OrderItem],
-//       transaction: t,
-//     });
-
-//     if (!order) throw new Error("Order not found");
-
-//     await order.update(
-//       { status: "confirmed", paymentStatus: "paid", transactionId },
-//       { transaction: t },
-//     );
-
-//     for (const item of order.OrderItems) {
-//       const product = await Product.findByPk(item.productId, {
-//         transaction: t,
-//       });
-//       await product.decrement("stockQuantity", {
-//         by: item.quantity,
-//         transaction: t,
-//       });
-//     }
-
-//     await CartItem.destroy({ where: { userId: order.userId }, transaction: t });
-
-//     await t.commit();
-//     res.status(200).json({ success: true, message: "Order confirmed" });
-//   } catch (error) {
-//     await t.rollback();
-//     res.status(500).json({ success: false, message: error.message });
-//   }
-// };
-
 /**
  * Place Order & generate ICICI payment data
  */
@@ -173,18 +13,22 @@ const {
   VariantSize,
   sequelize,
 } = require("../../models");
-const UserAddress = require("../../models/orders/userAddress.model"); 
+const UserAddress = require("../../models/orders/userAddress.model");
 
 const { generateOrderNumber } = require("../../utils/helpers");
-const {
-  encrypt,
-  decrypt,
-  generateChecksum,
-} = require("../../utils/iciciCrypto");
+// const {
+//   encrypt,
+//   decrypt,
+//   generateChecksum,
+// } = require("../../utils/iciciCrypto");
+const Razorpay = require("razorpay");
+const crypto = require("crypto");
 
-/**
- * STEP 1 — Place Order & Generate ICICI Payment Payload
- */
+const razorpay = new Razorpay({
+  key_id: process.env.RAZORPAY_KEY_ID,
+  key_secret: process.env.RAZORPAY_KEY_SECRET,
+});
+
 exports.placeOrder = async (req, res) => {
   let t;
 
@@ -194,24 +38,16 @@ exports.placeOrder = async (req, res) => {
     const userId = req.user.id;
     const { addressId, paymentMethod } = req.body;
 
-    if (!addressId) {
-      throw new Error("Address is required to place order");
-    }
+    if (!addressId) throw new Error("Address is required");
 
-    /**
-     *  Fetch selected user address
-     */
     const userAddress = await UserAddress.findOne({
       where: { id: addressId, userId },
       transaction: t,
       lock: t.LOCK.UPDATE,
     });
 
-    if (!userAddress) {
-      throw new Error("Invalid address selected");
-    }
+    if (!userAddress) throw new Error("Invalid address");
 
-    //  Fetch cart with full relations
     const cartItems = await CartItem.findAll({
       where: { userId },
       include: [
@@ -224,57 +60,34 @@ exports.placeOrder = async (req, res) => {
         { model: VariantSize, as: "variantSize" },
       ],
       transaction: t,
-      lock: t.LOCK.UPDATE, //  prevent race condition
+      lock: t.LOCK.UPDATE,
     });
 
     if (!cartItems.length) throw new Error("Cart is empty");
 
-    //  Calculate subtotal + validate stock
     let subtotal = 0;
+    let totalTax = 0;
 
     for (const item of cartItems) {
       const price = Number(item.product?.price?.sellingPrice || 0);
       const qty = Number(item.quantity || 0);
       const stock = Number(item.variantSize?.stock || 0);
+      const gstRate = Number(item.product?.gstRate || 0);
 
-      if (!price || qty <= 0) {
-        throw new Error(`Invalid price/quantity for product ${item.productId}`);
-      }
+      if (!price || qty <= 0) throw new Error("Invalid cart item");
+      if (stock < qty)
+        throw new Error(`Insufficient stock for ${item.product.title}`);
 
-      if (stock < qty) {
-        throw new Error(
-          `Insufficient stock for ${item.product.title} (${item.variantSize.size})`,
-        );
-      }
+      const itemSubtotal = price * qty;
+      const itemTax = Math.round((itemSubtotal * gstRate) / 100);
 
-      subtotal += price * qty;
+      subtotal += itemSubtotal;
+      totalTax += itemTax;
     }
 
-    if (!subtotal || isNaN(subtotal)) {
-      throw new Error("Invalid subtotal calculation");
-    }
-
-    const taxAmount = Math.round(subtotal * 0.12);
     const shippingFee = subtotal > 5000 ? 0 : 150;
-    const totalAmount = subtotal + taxAmount + shippingFee;
+    const totalAmount = subtotal + totalTax + shippingFee;
 
-    // //  Create Order
-    // const order = await Order.create(
-    //   {
-    //     userId,
-    //     orderNumber: generateOrderNumber(),
-    //     subtotal,
-    //     taxAmount,
-    //     shippingFee,
-    //     totalAmount,
-    //     status: "pending",
-    //     paymentMethod,
-    //     paymentStatus: "unpaid",
-    //   },
-    //   { transaction: t },
-    // );
-
-    //  Create Order
     const isCOD = paymentMethod === "COD";
 
     const order = await Order.create(
@@ -282,11 +95,9 @@ exports.placeOrder = async (req, res) => {
         userId,
         orderNumber: generateOrderNumber(),
         subtotal,
-        taxAmount,
+        taxAmount: totalTax,
         shippingFee,
         totalAmount,
-
-        // 🔹 COD vs ONLINE difference
         status: isCOD ? "confirmed" : "pending",
         paymentMethod,
         paymentStatus: isCOD ? "unpaid" : "unpaid",
@@ -294,27 +105,48 @@ exports.placeOrder = async (req, res) => {
       { transaction: t },
     );
 
-    //  Create Order Items
-    const orderItems = cartItems.map((item) => ({
-      orderId: order.id,
-      productId: item.productId,
-      variantId: item.variantId,
-      sizeId: item.sizeId,
-      // REQUIRED SNAPSHOT FIELDS
-      productName: item.product.title,
-      variantColor: item.variant.colorName,
-      sizeLabel: item.variantSize.size,
+    // const orderItems = cartItems.map((item) => ({
+    //   orderId: order.id,
+    //   productId: item.productId,
+    //   variantId: item.variantId,
+    //   sizeId: item.sizeId,
+    //   productName: item.product.title,
+    //   variantColor: item.variant.colorName,
+    //   sizeLabel: item.variantSize.size,
+    //   quantity: item.quantity,
+    //   priceAtPurchase: item.product.price.sellingPrice,
+    //   totalPrice: item.product.price.sellingPrice * item.quantity,
+    // }));
+    const orderItems = cartItems.map((item) => {
+      const price = Number(item.product.price.sellingPrice);
+      const qty = Number(item.quantity);
+      const gstRate = Number(item.product.gstRate || 0);
 
-      quantity: item.quantity,
-      priceAtPurchase: item.product.price.sellingPrice,
-      totalPrice: item.product.price.sellingPrice * item.quantity,
-    }));
+      const itemSubtotal = price * qty;
+      const itemTax = Math.round((itemSubtotal * gstRate) / 100);
+
+      return {
+        orderId: order.id,
+        productId: item.productId,
+        variantId: item.variantId,
+        sizeId: item.sizeId,
+
+        productName: item.product.title,
+        variantColor: item.variant.colorName,
+        sizeLabel: item.variantSize.size,
+
+        quantity: qty,
+        priceAtPurchase: price,
+
+        taxRate: gstRate, // ✅ GST snapshot
+        taxAmount: itemTax, // ✅ GST snapshot
+
+        totalPrice: itemSubtotal + itemTax,
+      };
+    });
 
     await OrderItem.bulkCreate(orderItems, { transaction: t });
 
-    /**
-     *  Save immutable OrderAddress snapshot
-     */
     await OrderAddress.create(
       {
         orderId: order.id,
@@ -325,234 +157,70 @@ exports.placeOrder = async (req, res) => {
         country: userAddress.country,
         city: userAddress.city,
         state: userAddress.state,
-        zipCode: userAddress.zipCode
-        // shippingType: userAddress.shippingType,
+        zipCode: userAddress.zipCode,
       },
-      { transaction: t }
+      { transaction: t },
     );
 
-    // Commit BEFORE payment gateway
     await t.commit();
 
-    /**
-     * ==========================================
-     *  CASH ON DELIVERY FLOW
-     * ==========================================
-     */
-    if (paymentMethod === "COD") {
-      return res.status(200).json({
+    // ---------------- COD FLOW ----------------
+    if (isCOD) {
+      return res.json({
         success: true,
-        message: "Order placed successfully with Cash on Delivery",
+        message: "Order placed with COD",
         orderNumber: order.orderNumber,
         totalAmount,
-        paymentMethod: "COD",
-        paymentStatus: "unpaid",
-        status: "confirmed",
       });
     }
 
-    // --------------------------------------------------
-    //  ICICI PAYMENT INIT
-    // --------------------------------------------------
-    const paymentData = {
-      merchantId: process.env.ICICI_MERCHANT_ID,
-      orderNumber: order.orderNumber,
-      amount: totalAmount,
+    // ---------------- RAZORPAY ORDER ----------------
+    const razorpayOrder = await razorpay.orders.create({
+      amount: totalAmount * 100, // paisa
       currency: "INR",
-      returnUrl: process.env.ICICI_RETURN_URL,
-      cancelUrl: process.env.ICICI_CANCEL_URL,
-    };
+      receipt: order.orderNumber,
+    });
 
-    const payload = JSON.stringify(paymentData);
-    const encData = encrypt(payload, process.env.ICICI_ENCRYPTION_KEY);
-    const checksum = generateChecksum(encData, process.env.ICICI_CHECKSUM_KEY);
-
-    return res.status(200).json({
+    return res.json({
       success: true,
       orderNumber: order.orderNumber,
-      totalAmount,
-      paymentUrl: process.env.ICICI_PAYMENT_URL,
-      encData,
-      checksum,
+      razorpayOrderId: razorpayOrder.id,
+      amount: razorpayOrder.amount,
+      currency: "INR",
+      key: process.env.RAZORPAY_KEY_ID,
     });
-  } catch (error) {
+  } catch (err) {
     if (t && !t.finished) await t.rollback();
 
     return res.status(500).json({
       success: false,
-      message: error.message,
+      message: err.message,
     });
   }
 };
 
-/**
- * STEP 2 — ICICI REAL CALLBACK (PRODUCTION SAFE)
- */
-// exports.iciciReturn = async (req, res) => {
-//   let t;
-
-//   try {
-//     t = await sequelize.transaction();
-
-//     const { encData, checksum } = req.body;
-
-//     // 1️⃣ Basic validation
-//     if (!encData || !checksum) {
-//       throw new Error("Missing encData or checksum");
-//     }
-
-//     // 2️⃣ Verify checksum (security)
-//     const generatedChecksum = generateChecksum(
-//       encData,
-//       process.env.ICICI_CHECKSUM_KEY
-//     );
-
-//     if (generatedChecksum !== checksum) {
-//       throw new Error("Checksum mismatch");
-//     }
-
-//     // 3️⃣ Decrypt ICICI response
-//     let decrypted;
-//     try {
-//       decrypted = JSON.parse(
-//         decrypt(encData, process.env.ICICI_ENCRYPTION_KEY)
-//       );
-//     } catch (err) {
-//       throw new Error("Invalid encrypted payload");
-//     }
-
-//     const { orderNumber, transactionId, status } = decrypted;
-
-//     if (!orderNumber) {
-//       throw new Error("Invalid ICICI response: missing orderNumber");
-//     }
-
-//     // 4️⃣ Lock pending order (prevents double payment processing)
-//     const order = await Order.findOne({
-//       where: { orderNumber },
-//       include: [OrderItem],
-//       transaction: t,
-//       lock: t.LOCK.UPDATE,
-//     });
-
-//     if (!order) {
-//       throw new Error("Order not found");
-//     }
-
-//     // 🔐 Idempotency check → already processed
-//     if (order.status !== "pending") {
-//       await t.commit();
-
-//       return res.redirect(
-//         `${process.env.FRONTEND_URL}/payment-result?status=${order.paymentStatus}&order=${order.orderNumber}`
-//       );
-//     }
-
-//     // --------------------------------------------------
-//     // 5️⃣ HANDLE SUCCESS PAYMENT
-//     // --------------------------------------------------
-//     if (status === "SUCCESS") {
-//       // Update order payment info
-//       await order.update(
-//         {
-//           status: "confirmed",
-//           paymentStatus: "paid",
-//           transactionId: transactionId || null,
-//         },
-//         { transaction: t }
-//       );
-
-//       // Deduct stock safely
-//       for (const item of order.OrderItems) {
-//         // Size stock
-//         const sizeUpdated = await VariantSize.decrement("stock", {
-//           by: item.quantity,
-//           where: {
-//             id: item.sizeId,
-//             stock: { [sequelize.Op.gte]: item.quantity }, // prevent negative stock
-//           },
-//           transaction: t,
-//         });
-
-//         if (!sizeUpdated[0][1]) {
-//           throw new Error("Stock mismatch during payment confirmation");
-//         }
-
-//         // Variant total stock
-//         await ProductVariant.decrement("totalStock", {
-//           by: item.quantity,
-//           where: { id: item.variantId },
-//           transaction: t,
-//         });
-//       }
-
-//       // Clear user cart
-//       await CartItem.destroy({
-//         where: { userId: order.userId },
-//         transaction: t,
-//       });
-//     }
-
-//     // --------------------------------------------------
-//     // 6️⃣ HANDLE FAILED / CANCELLED PAYMENT
-//     // --------------------------------------------------
-//     else {
-//       await order.update(
-//         {
-//           status: "cancelled",
-//           paymentStatus: "failed",
-//           transactionId: transactionId || null,
-//         },
-//         { transaction: t }
-//       );
-//     }
-
-//     await t.commit();
-
-//     // --------------------------------------------------
-//     // 7️⃣ Redirect user to frontend result page
-//     // --------------------------------------------------
-//     return res.redirect(
-//       `${process.env.FRONTEND_URL}/payment-result?status=${order.paymentStatus}&order=${order.orderNumber}`
-//     );
-//   } catch (err) {
-//     if (t) await t.rollback();
-
-//     console.error("ICICI CALLBACK ERROR:", err.message);
-
-//     // Never expose internal error to ICICI
-//     return res.redirect(
-//       `${process.env.FRONTEND_URL}/payment-result?status=error`
-//     );
-//   }
-// };
-
-exports.iciciReturn = async (req, res) => {
+exports.verifyRazorpayPayment = async (req, res) => {
   const t = await sequelize.transaction();
 
   try {
-    const { encData, checksum } = req.body;
+    const {
+      razorpay_order_id,
+      razorpay_payment_id,
+      razorpay_signature,
+      orderNumber,
+    } = req.body;
 
-    //  Validate checksum
-    const validChecksum = generateChecksum(
-      encData,
-      process.env.ICICI_CHECKSUM_KEY,
-    );
+    const body = razorpay_order_id + "|" + razorpay_payment_id;
 
-    if (validChecksum !== checksum) {
-      throw new Error("Checksum mismatch");
+    const expectedSignature = crypto
+      .createHmac("sha256", process.env.RAZORPAY_KEY_SECRET)
+      .update(body.toString())
+      .digest("hex");
+
+    if (expectedSignature !== razorpay_signature) {
+      throw new Error("Payment verification failed");
     }
 
-    //  Decrypt ICICI response
-    const decrypted = JSON.parse(
-      decrypt(encData, process.env.ICICI_ENCRYPTION_KEY),
-    );
-
-    const { orderNumber, transactionId, status } = decrypted;
-
-    if (!orderNumber) throw new Error("Invalid ICICI payload");
-
-    // Find order safely
     const order = await Order.findOne({
       where: { orderNumber },
       include: [OrderItem],
@@ -562,133 +230,46 @@ exports.iciciReturn = async (req, res) => {
 
     if (!order) throw new Error("Order not found");
 
-    // Prevent duplicate payment processing
     if (order.paymentStatus === "paid") {
       await t.commit();
-      return res.redirect(`${process.env.FRONTEND_URL}/payment-success`);
+      return res.json({ success: true });
     }
 
-    // SUCCESS FLOW
-    if (status === "SUCCESS") {
-      await order.update(
-        {
-          status: "confirmed",
-          paymentStatus: "paid",
-          transactionId,
-          paidAt: new Date(),
-        },
-        { transaction: t },
-      );
-
-      //  Deduct stock
-      for (const item of order.OrderItems) {
-        await VariantSize.decrement("stock", {
-          by: item.quantity,
-          where: { id: item.sizeId },
-          transaction: t,
-        });
-
-        await ProductVariant.decrement("totalStock", {
-          by: item.quantity,
-          where: { id: item.variantId },
-          transaction: t,
-        });
-      }
-
-      //  Clear cart
-      await CartItem.destroy({
-        where: { userId: order.userId },
-        transaction: t,
-      });
-
-      //  Generate invoice number (simple example)
-      const invoiceNumber = `INV-${Date.now()}`;
-
-      await order.update({ invoiceNumber }, { transaction: t });
-
-      await t.commit();
-
-      //  Redirect to frontend success page
-      return res.redirect(
-        `${process.env.FRONTEND_URL}/payment-success?order=${order.orderNumber}`,
-      );
-    }
-
-    //  FAILED PAYMENT FLOW
     await order.update(
-      { status: "cancelled", paymentStatus: "failed" },
+      {
+        status: "confirmed",
+        paymentStatus: "paid",
+        transactionId: razorpay_payment_id,
+        paidAt: new Date(),
+      },
       { transaction: t },
     );
 
-    await t.commit();
-
-    return res.redirect(`${process.env.FRONTEND_URL}/payment-failed`);
-  } catch (err) {
-    await t.rollback();
-
-    console.error("ICICI RETURN ERROR:", err.message);
-
-    return res.redirect(`${process.env.FRONTEND_URL}/payment-error`);
-  }
-};
-
-// STEP 3 — Local Test Callback (for Postman testing)
-
-exports.iciciTestCallback = async (req, res) => {
-  const t = await sequelize.transaction();
-
-  try {
-    const { orderNumber, transactionId = "TEST_TXN_123", status } = req.body;
-
-    if (!orderNumber) {
-      throw new Error("orderNumber is required in request body");
-    }
-
-    const order = await Order.findOne({
-      where: { orderNumber, status: "pending" },
-      include: [OrderItem],
-      transaction: t,
-      lock: true,
-    });
-
-    if (!order) throw new Error("Order not found or already processed");
-
-    if (status === "SUCCESS") {
-      await order.update(
-        { status: "confirmed", paymentStatus: "paid", transactionId },
-        { transaction: t },
-      );
-
-      for (const item of order.OrderItems) {
-        await VariantSize.decrement("stock", {
-          by: item.quantity,
-          where: { id: item.sizeId },
-          transaction: t,
-        });
-
-        await ProductVariant.decrement("totalStock", {
-          by: item.quantity,
-          where: { id: item.variantId },
-          transaction: t,
-        });
-      }
-
-      await CartItem.destroy({
-        where: { userId: order.userId },
+    //  deduct stock
+    for (const item of order.OrderItems) {
+      await VariantSize.decrement("stock", {
+        by: item.quantity,
+        where: { id: item.sizeId },
         transaction: t,
       });
-    } else {
-      await order.update(
-        { status: "cancelled", paymentStatus: "failed" },
-        { transaction: t },
-      );
+
+      await ProductVariant.decrement("totalStock", {
+        by: item.quantity,
+        where: { id: item.variantId },
+        transaction: t,
+      });
     }
+
+    await CartItem.destroy({
+      where: { userId: order.userId },
+      transaction: t,
+    });
 
     await t.commit();
 
     return res.json({
       success: true,
-      message: "Test payment processed successfully",
+      message: "Payment verified",
     });
   } catch (err) {
     await t.rollback();
@@ -699,3 +280,86 @@ exports.iciciTestCallback = async (req, res) => {
     });
   }
 };
+
+// exports.razorpayWebhook = async (req, res) => {
+//   const signature = req.headers["x-razorpay-signature"];
+
+//   const expected = crypto
+//     .createHmac("sha256", process.env.RAZORPAY_WEBHOOK_SECRET)
+//     .update(JSON.stringify(req.body))
+//     .digest("hex");
+
+//   // Invalid webhook → ignore silently
+//   if (signature !== expected) {
+//     return res.status(400).json({ success: false });
+//   }
+
+//   const event = req.body.event;
+
+//   // We only care about payment captured
+//   if (event !== "payment.captured") {
+//     return res.json({ received: true });
+//   }
+
+//   const payment = req.body.payload.payment.entity;
+//   const orderNumber = payment.receipt;
+
+//   const t = await sequelize.transaction();
+
+//   try {
+//     const order = await Order.findOne({
+//       where: { orderNumber },
+//       include: [OrderItem],
+//       transaction: t,
+//       lock: true,
+//     });
+
+//     if (!order) throw new Error("Order not found");
+
+//     //  Idempotency protection
+//     if (order.paymentStatus === "paid") {
+//       await t.commit();
+//       return res.json({ received: true });
+//     }
+
+//     //  Mark paid
+//     await order.update(
+//       {
+//         status: "confirmed",
+//         paymentStatus: "paid",
+//         transactionId: payment.id,
+//         paidAt: new Date(),
+//         invoiceNumber: `INV-${Date.now()}`,
+//       },
+//       { transaction: t }
+//     );
+
+//     //  Deduct stock
+//     for (const item of order.OrderItems) {
+//       await VariantSize.decrement("stock", {
+//         by: item.quantity,
+//         where: { id: item.sizeId },
+//         transaction: t,
+//       });
+
+//       await ProductVariant.decrement("totalStock", {
+//         by: item.quantity,
+//         where: { id: item.variantId },
+//         transaction: t,
+//       });
+//     }
+
+//     //  Clear cart
+//     await CartItem.destroy({
+//       where: { userId: order.userId },
+//       transaction: t,
+//     });
+
+//     await t.commit();
+
+//     return res.json({ received: true });
+//   } catch (err) {
+//     await t.rollback();
+//     return res.status(500).json({ received: false });
+//   }
+// };

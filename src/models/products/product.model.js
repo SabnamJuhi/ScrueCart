@@ -1,5 +1,5 @@
-const { Model, DataTypes } = require("sequelize")
-const sequelize = require("../../config/db")
+const { Model, DataTypes } = require("sequelize");
+const sequelize = require("../../config/db");
 
 class Product extends Model {}
 
@@ -8,48 +8,52 @@ Product.init(
     id: {
       type: DataTypes.INTEGER,
       primaryKey: true,
-      autoIncrement: true
+      autoIncrement: true,
     },
 
     title: {
       type: DataTypes.STRING,
-      allowNull: false
+      allowNull: false,
     },
     categoryId: {
       type: DataTypes.INTEGER,
-      allowNull: false
+      allowNull: false,
     },
 
     subCategoryId: {
       type: DataTypes.INTEGER,
-      allowNull: false
+      allowNull: false,
     },
 
     productCategoryId: {
       type: DataTypes.INTEGER,
-      allowNull: false
+      allowNull: false,
     },
-     description: {
-      type: DataTypes.TEXT
+    description: {
+      type: DataTypes.TEXT,
     },
-     brandName: {
+    brandName: {
       type: DataTypes.STRING,
-      allowNull: false   
+      allowNull: false,
     },
     badge: {
-      type: DataTypes.STRING
+      type: DataTypes.STRING,
     },
-    
+    gstRate: {
+      type: DataTypes.DECIMAL(5, 2), // 5.00, 12.00, 18.00, 28.00
+      allowNull: false,
+      defaultValue: 0,
+    },
     isActive: {
       type: DataTypes.BOOLEAN,
-      defaultValue: true
-    }
+      defaultValue: true,
+    },
   },
   {
     sequelize,
     modelName: "Product",
-    tableName: "products"
+    tableName: "products",
   },
-)
+);
 
-module.exports = Product
+module.exports = Product;

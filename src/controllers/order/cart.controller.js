@@ -1,82 +1,11 @@
-const { CartItem, Product, ProductPrice, ProductVariant, VariantImage, VariantSize } = require("../../models");
-
-
-// exports.getCart = async (req, res) => {
-//   try {
-//     const userId = req.user.id;
-//     const cartItems = await CartItem.findAll({
-//       where: { userId },
-//       include: [
-//         {
-//           model: Product,
-//           as: "product",
-//           include: [{ model: ProductPrice, as: "price" }]
-//         },
-//         { 
-//           model: ProductVariant, 
-//           as: "variant",
-//           include: [{ model: VariantImage, as: "images", limit: 1 }]
-//         }
-//       ],
-//       order: [['createdAt', 'DESC']]
-//     });
-
-//     let subTotal = 0;
-//     let totalQuantity = 0;
-    
-//     const items = cartItems.map(item => {
-//       const sellingPrice = item.product?.price?.sellingPrice || 0;
-//       const isAvailable = item.variant?.stockStatus === "In Stock" && item.variant?.totalStock > 0;
-      
-//       const itemTotal = sellingPrice * item.quantity;
-
-//       // INDUSTRY LOGIC: Only add to total if item is actually available to buy
-//       if (isAvailable) {
-//         subTotal += itemTotal;
-//         totalQuantity += item.quantity;
-//       }
-
-//       return {
-//         cartId: item.id,
-//         productId: item.productId,
-//         variantId: item.variantId,
-//         title: item.product?.title || "Unknown Product",
-//         image: item.variant?.images?.[0]?.imageUrl || null, 
-//         variant: {
-//           color: item.variant?.colorName || "Default",
-//           size: item.selectedSize,
-//           stock: item.variant?.totalStock || 0,
-//           status: item.variant?.stockStatus || "Out of Stock",
-//           isAvailable: isAvailable // Frontend can use this to grey out the item
-//         },
-//         price: sellingPrice,
-//         quantity: item.quantity,
-//         total: isAvailable ? itemTotal : 0 // Show 0 total if out of stock
-//       };
-//     });
-
-//     // Calculations based only on available items
-//     const taxAmount = Math.round(subTotal * 0.12);
-//     const deliveryCharge = (subTotal > 5000 || subTotal === 0) ? 0 : 150;
-
-//     res.status(200).json({
-//       success: true,
-//       data: items,
-//       summary: {
-//         itemsCount: items.length,
-//         totalQuantity,
-//         subTotal,
-//         tax: { rate: "12%", amount: taxAmount, type: "GST" },
-//         grandTotal: subTotal + taxAmount + deliveryCharge,
-//         currency: "INR",
-//         canCheckout: items.every(i => i.variant.isAvailable) // Helper for frontend
-//       }
-//     });
-//   } catch (error) {
-//     res.status(500).json({ success: false, message: error.message });
-//   }
-// };
-
+const {
+  CartItem,
+  Product,
+  ProductPrice,
+  ProductVariant,
+  VariantImage,
+  VariantSize,
+} = require("../../models");
 
 exports.getCart = async (req, res) => {
   try {
@@ -88,17 +17,17 @@ exports.getCart = async (req, res) => {
         {
           model: Product,
           as: "product",
-          include: [{ model: ProductPrice, as: "price" }]
+          include: [{ model: ProductPrice, as: "price" }],
         },
         {
           model: ProductVariant,
           as: "variant",
-          include: [{ model: VariantImage, as: "images", limit: 1 }]
+          include: [{ model: VariantImage, as: "images", limit: 1 }],
         },
         {
           model: VariantSize,
-          as: "variantSize"
-        }
+          as: "variantSize",
+        },
       ],
       order: [["createdAt", "DESC"]],
     });
@@ -110,8 +39,7 @@ exports.getCart = async (req, res) => {
       const sellingPrice = item.product?.price?.sellingPrice || 0;
 
       const isAvailable =
-        item.variant?.stockStatus === "In Stock" &&
-        item.variantSize?.stock > 0;
+        item.variant?.stockStatus === "In Stock" && item.variantSize?.stock > 0;
 
       const itemTotal = sellingPrice * item.quantity;
 
@@ -143,8 +71,21 @@ exports.getCart = async (req, res) => {
       };
     });
 
-    const taxAmount = Math.round(subTotal * 0.12);
-    const deliveryCharge = subTotal > 5000 || subTotal === 0 ? 0 : 150;
+    // const taxAmount = Math.round(subTotal * 0.12);
+    let taxAmount = 0;
+
+    cartItems.forEach((item) => {
+      const sellingPrice = item.product?.price?.sellingPrice || 0;
+      const qty = item.quantity || 0;
+      const gstRate = Number(item.product?.gstRate || 0);
+
+      const itemSubtotal = sellingPrice * qty;
+      const itemTax = Math.round((itemSubtotal * gstRate) / 100);
+
+      taxAmount += itemTax;
+    });
+
+    const shippingFee = subTotal > 5000 || subTotal === 0 ? 0 : 150;
 
     res.json({
       success: true,
@@ -153,8 +94,10 @@ exports.getCart = async (req, res) => {
         itemsCount: items.length,
         totalQuantity,
         subTotal,
-        tax: { rate: "12%", amount: taxAmount },
-        grandTotal: subTotal + taxAmount + deliveryCharge,
+        // tax: { rate: "12%", amount: taxAmount },
+        tax: { amount: taxAmount }, // dynamic GST
+        grandTotal: subTotal + taxAmount + shippingFee,
+        shippingFee,
         currency: "INR",
         canCheckout: items.every((i) => i.variant.isAvailable),
       },
@@ -163,46 +106,6 @@ exports.getCart = async (req, res) => {
     res.status(500).json({ success: false, message: error.message });
   }
 };
-
-
-
-/**
- * 2. ADD TO CART
- * Logic: Must check productId, variantId AND selectedSize.
- */
-// exports.addToCart = async (req, res) => {
-//   try {
-//     const { productId, variantId, size } = req.body;
-
-//     // 1. VALIDATION: Does this variant actually belong to this product?
-//     const validVariant = await ProductVariant.findOne({
-//       where: { id: variantId, productId: productId }
-//     });
-
-//     if (!validVariant) {
-//       return res.status(400).json({ 
-//         success: false, 
-//         message: "Invalid variant selected for this product." 
-//       });
-//     }
-
-//     // 2. Proceed with FindOrCreate...
-//     const [item, created] = await CartItem.findOrCreate({
-//       where: { userId: req.user.id, productId, variantId, selectedSize: size },
-//       defaults: { quantity: 1 }
-//     });
-    
-//     // ... rest of your code
-//     if (!created) {
-//       await item.increment('quantity', { by: 1 });
-//     }
-
-//     res.status(200).json({ success: true, message: "Added to cart" });
-//   } catch (error) {
-//     res.status(500).json({ success: false, message: error.message });
-//   }
-// };
-
 
 exports.addToCart = async (req, res) => {
   try {
@@ -248,81 +151,6 @@ exports.addToCart = async (req, res) => {
   }
 };
 
-
-/**
- * MERGE GUEST CART AFTER LOGIN
- * Route: POST /cart/merge
- * Body: { items: [{ productId, variantId, size, quantity }] }
- */
-// exports.mergeGuestCart = async (req, res) => {
-//   const transaction = await CartItem.sequelize.transaction();
-
-//   try {
-//     const userId = req.user.id;
-//     const { items } = req.body;
-
-//     if (!Array.isArray(items) || items.length === 0) {
-//       return res.status(400).json({
-//         success: false,
-//         message: "Guest cart is empty or invalid"
-//       });
-//     }
-
-//     for (const guestItem of items) {
-//       const { productId, variantId, size, quantity } = guestItem;
-
-//       // 1️⃣ Validate variant belongs to product
-//       const validVariant = await ProductVariant.findOne({
-//         where: { id: variantId, productId }
-//       });
-
-//       if (!validVariant) continue; // skip invalid items
-
-//       // 2️⃣ Check if item already exists in user's DB cart
-//       const existingItem = await CartItem.findOne({
-//         where: { userId, productId, variantId, selectedSize: size },
-//         transaction
-//       });
-
-//       if (existingItem) {
-//         // 3️⃣ Increase quantity
-//         await existingItem.increment("quantity", {
-//           by: quantity || 1,
-//           transaction
-//         });
-//       } else {
-//         // 4️⃣ Create new cart item
-//         await CartItem.create(
-//           {
-//             userId,
-//             productId,
-//             variantId,
-//             selectedSize: size,
-//             quantity: quantity || 1
-//           },
-//           { transaction }
-//         );
-//       }
-//     }
-
-//     await transaction.commit();
-
-//     return res.status(200).json({
-//       success: true,
-//       message: "Guest cart merged successfully"
-//     });
-
-//   } catch (error) {
-//     await transaction.rollback();
-//     return res.status(500).json({
-//       success: false,
-//       message: error.message
-//     });
-//   }
-// };
-
-
-
 exports.mergeGuestCart = async (req, res) => {
   const transaction = await CartItem.sequelize.transaction();
 
@@ -349,11 +177,14 @@ exports.mergeGuestCart = async (req, res) => {
       });
 
       if (existing) {
-        await existing.increment("quantity", { by: quantity || 1, transaction });
+        await existing.increment("quantity", {
+          by: quantity || 1,
+          transaction,
+        });
       } else {
         await CartItem.create(
           { userId, productId, variantId, sizeId, quantity: quantity || 1 },
-          { transaction }
+          { transaction },
         );
       }
     }
@@ -365,34 +196,6 @@ exports.mergeGuestCart = async (req, res) => {
     res.status(500).json({ success: false, message: error.message });
   }
 };
-
-
-/**
- * 3. DECREASE QUANTITY
- */
-// exports.decreaseQuantity = async (req, res) => {
-//   try {
-//     const { productId, variantId, size } = req.body;
-//     const userId = req.user.id;
-
-//     const item = await CartItem.findOne({ 
-//       where: { userId, productId, variantId, selectedSize: size } 
-//     });
-
-//     if (!item) return res.status(404).json({ message: "Item not found" });
-
-//     if (item.quantity > 1) {
-//       await item.decrement('quantity', { by: 1 });
-//     } else {
-//       await item.destroy();
-//     }
-//     res.json({ success: true, message: "Quantity decreased" });
-//   } catch (error) {
-//     res.status(500).json({ success: false, message: error.message });
-//   }
-// };
-
-
 
 exports.decreaseQuantity = async (req, res) => {
   try {
@@ -417,8 +220,6 @@ exports.decreaseQuantity = async (req, res) => {
   }
 };
 
-
-
 /**
  * 4. REMOVE ITEM COMPLETELY
  */
@@ -432,8 +233,6 @@ exports.removeFromCart = async (req, res) => {
   }
 };
 
-
-
 // DELETE /api/cart/item
 exports.deleteCartItem = async (req, res) => {
   try {
@@ -444,7 +243,7 @@ exports.deleteCartItem = async (req, res) => {
     if (!productId || !variantId || !sizeId) {
       return res.status(400).json({
         success: false,
-        message: "productId, variantId and sizeId are required"
+        message: "productId, variantId and sizeId are required",
       });
     }
 
@@ -454,14 +253,14 @@ exports.deleteCartItem = async (req, res) => {
         userId,
         productId,
         variantId,
-        sizeId
-      }
+        sizeId,
+      },
     });
 
     if (!cartItem) {
       return res.status(404).json({
         success: false,
-        message: "Cart item not found"
+        message: "Cart item not found",
       });
     }
 
@@ -470,15 +269,14 @@ exports.deleteCartItem = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      message: "Cart item deleted successfully"
+      message: "Cart item deleted successfully",
     });
-
   } catch (error) {
     console.error("Delete cart item error:", error);
 
     return res.status(500).json({
       success: false,
-      message: "Server error while deleting cart item"
+      message: "Server error while deleting cart item",
     });
   }
 };

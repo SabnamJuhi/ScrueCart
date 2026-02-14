@@ -25,8 +25,8 @@ router.post('/place', protected, orderController.placeOrder);
 // Payment Webhook (Public, called by Razorpay/Stripe)
 // router.post('/webhook/payment', orderController.handlePaymentWebhook);
 
-router.post("/payment/icici/callback", orderController.iciciReturn);
-router.post("/payment/icici/test", orderController.iciciTestCallback);
+// router.post("/payment/icici/callback", orderController.iciciReturn);
+// router.post("/payment/icici/test", orderController.iciciTestCallback);
 
 
 
@@ -61,6 +61,13 @@ router.get("/user/address/:id", protected, getAddressById)
 router.put("/user/address/:id", protected, updateAddress);
 router.delete("/user/address/:id", protected, deleteAddress);
 router.patch("/user/address/default/:id", protected, setDefaultAddress);
+
+// router.post(
+//   "/razorpay-webhook",
+//   express.raw({ type: "application/json" }),
+//   razorpayWebhook
+// );
+
 
 
 module.exports = router;

@@ -35,6 +35,7 @@ exports.createProduct = async (req, res) => {
       specs,
       variants,
       appliedOffers,
+      gstRate
     } = req.body;
 
     if (!title || !categoryId || !subCategoryId || !productCategoryId) {
@@ -70,6 +71,16 @@ exports.createProduct = async (req, res) => {
       // ✅ Cloudinary URL
       variantImagesMap[index].push(file.path);
     }
+    if (gstRate === undefined || gstRate === null) {
+  throw new Error("GST rate is required");
+}
+const numericGst = Number(gstRate);
+
+if (isNaN(numericGst)) {
+  throw new Error("Invalid GST rate");
+}
+
+
 
     /* ---------------- CREATE PRODUCT ---------------- */
     const product = await Product.create(
@@ -81,6 +92,7 @@ exports.createProduct = async (req, res) => {
         productCategoryId: Number(productCategoryId),
         description,
         badge,
+        gstRate: numericGst
       },
       { transaction: t },
     );

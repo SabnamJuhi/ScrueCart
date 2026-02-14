@@ -14,6 +14,7 @@ const { getProductFilters } = require("../../controllers/Aggregate-Products/getP
 const { getFilteredProducts } = require("../../controllers/Aggregate-Products/getFilteredProduct.controller");
 
 const adminAuth = require("../../middleware/admin.auth.middleware")
+const {protected, optionalAuth} = require("../../middleware/user.logout.middleware")
 
 
 // router.post("/products", upload.any(), productController.createProduct)
@@ -22,8 +23,8 @@ router.post("/products", upload.any(), adminAuth, createProduct)
 
 // router.get("/filter", productController.getFilteredProducts);
 // router.get("/filterd-product", productController.getProductFilters);
-router.get("/filters", getProductFilters);        // ✅ filter metadata
-router.get("/products", getFilteredProducts); 
+router.get("/filters", getProductFilters);        //  filter metadata
+router.get("/products", optionalAuth, getFilteredProducts); 
 
 // router.get("/", productController.getAllProductsDetails)
 // router.get("/:id", productController.getProductById)

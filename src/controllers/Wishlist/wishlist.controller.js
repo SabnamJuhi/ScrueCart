@@ -5,6 +5,7 @@ const {
   ProductVariant,
   VariantImage,
   VariantSize,
+  ProductSpec,
 } = require("../../models");
 
 exports.addToWishlist = async (req, res) => {
@@ -48,6 +49,7 @@ exports.getWishlist = async (req, res) => {
       where: { userId },
 
       include: [
+        /* ---------- PRODUCT ---------- */
         {
           model: Product,
           attributes: ["id", "title", "brandName", "badge", "description"],
@@ -57,25 +59,30 @@ exports.getWishlist = async (req, res) => {
               as: "price",
               attributes: ["mrp", "sellingPrice", "discountPercentage"],
             },
+            {
+              model: ProductSpec,
+              as: "specs",
+              attributes: ["id", "specKey", "specValue"],
+            },
           ],
         },
 
+        /* ---------- VARIANT ---------- */
         {
           model: ProductVariant,
-          attributes: ["id", "colorName", "colorCode"],
+          attributes: ["id", "colorName", "colorCode", "totalStock", "stockStatus"],
           include: [
             {
               model: VariantImage,
               as: "images",
-              attributes: ["imageUrl"],
-            //   where: { isPrimary: true },
+              attributes: ["id", "imageUrl"],
               required: false,
-              limit: 1,
             },
             {
               model: VariantSize,
               as: "sizes",
               attributes: ["id", "size", "stock"],
+              required: false,
             },
           ],
         },
@@ -84,37 +91,54 @@ exports.getWishlist = async (req, res) => {
       order: [["createdAt", "DESC"]],
     });
 
-    // 🔹 Format clean e-commerce response
+    /* ---------- FORMAT CLEAN RESPONSE ---------- */
     const formattedWishlist = wishlistItems.map((item) => {
       const product = item.Product || {};
       const variant = item.ProductVariant || {};
       const price = product.price || {};
-      const primaryImage = variant.images?.[0]?.imageUrl || null;
 
       return {
         wishlistId: item.id,
         addedAt: item.createdAt,
 
+        /* ---------- PRODUCT ---------- */
         product: {
           id: product.id,
           title: product.title,
-          slug: product.slug,
+          brandName: product.brandName,
+          badge: product.badge,
+          description: product.description,
 
           price: {
             mrp: price.mrp || 0,
             sellingPrice: price.sellingPrice || 0,
-            discountPercent: price.discountPercent || 0,
+            discountPercent: price.discountPercentage || 0,
           },
+
+          specs:
+            product.specs?.map((s) => ({
+              specId: s.id,
+              key: s.specKey,
+              value: s.specValue,
+            })) || [],
         },
 
+        /* ---------- VARIANT ---------- */
         variant: {
           id: variant.id,
           colorName: variant.colorName,
           colorCode: variant.colorCode,
-          image: primaryImage,
+          totalStock: variant.totalStock || 0,
+          stockStatus: variant.stockStatus || "Out of Stock",
+
+          images:
+            variant.images?.map((img) => ({
+              id: img.id,
+              url: img.imageUrl,
+            })) || [],
 
           sizes:
-            variant.VariantSizes?.map((s) => ({
+            variant.sizes?.map((s) => ({
               sizeId: s.id,
               size: s.size,
               stock: s.stock,
@@ -136,6 +160,7 @@ exports.getWishlist = async (req, res) => {
     });
   }
 };
+
 
 exports.removeFromWishlist = async (req, res) => {
   try {

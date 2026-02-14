@@ -1,7 +1,3 @@
-/**
- * Place Order & generate ICICI payment data
- */
-
 const {
   Order,
   OrderItem,
@@ -14,13 +10,8 @@ const {
   sequelize,
 } = require("../../models");
 const UserAddress = require("../../models/orders/userAddress.model");
-
 const { generateOrderNumber } = require("../../utils/helpers");
-// const {
-//   encrypt,
-//   decrypt,
-//   generateChecksum,
-// } = require("../../utils/iciciCrypto");
+
 const Razorpay = require("razorpay");
 const crypto = require("crypto");
 

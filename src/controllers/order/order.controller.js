@@ -209,7 +209,7 @@ exports.placeOrder = async (req, res) => {
   }
 };
 
-const { createHmac } = require("node:crypto");
+
 exports.verifyRazorpayPayment = async (req, res) => {
   const t = await sequelize.transaction();
 

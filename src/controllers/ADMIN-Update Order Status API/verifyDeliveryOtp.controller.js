@@ -31,7 +31,6 @@
 
 
 
-
 const crypto = require("crypto");
 const { Order } = require("../../models");
 
@@ -43,35 +42,35 @@ exports.verifyDeliveryOtp = async (req, res) => {
       throw new Error("orderNumber and otp are required");
     }
 
-    // 🔎 Find order
     const order = await Order.findOne({ where: { orderNumber } });
     if (!order) throw new Error("Order not found");
 
-    //  Already delivered/completed protection
-    if (order.status === "delivered" || order.status === "completed") {
+    // Already completed
+    if (["delivered", "completed"].includes(order.status)) {
       throw new Error("Order already delivered");
     }
 
-    //  Must be out_for_delivery
+    // Must be out_for_delivery
     if (order.status !== "out_for_delivery") {
       throw new Error("Order is not out for delivery");
     }
 
-    //  Check OTP expiry
-    if (!order.otpExpiresAt || new Date() > order.otpExpiresAt) {
+    // Expiry check (timezone-safe)
+    if (
+      !order.otpExpiresAt ||
+      Date.now() > new Date(order.otpExpiresAt).getTime()
+    ) {
       throw new Error("OTP expired. Please resend OTP.");
     }
 
-    //  Hash incoming OTP and compare
+    // Hash incoming OTP
     const otpHash = crypto.createHash("sha256").update(otp).digest("hex");
 
     if (otpHash !== order.deliveryOtpHash) {
       throw new Error("Invalid OTP");
     }
 
-    // ------------------------------------------------
-    //  OTP VERIFIED → mark delivered
-    // ------------------------------------------------
+    // ✅ OTP verified
     const updateData = {
       status: "delivered",
       deliveredAt: new Date(),
@@ -80,11 +79,7 @@ exports.verifyDeliveryOtp = async (req, res) => {
       otpExpiresAt: null,
     };
 
-  
-    // Payment Handling
-   
-
-    //  ONLINE PAYMENT (ICICI etc.)
+    // 💳 Online payment → auto complete
     if (order.paymentMethod !== "COD") {
       updateData.status = "completed";
       updateData.completedAt = new Date();
@@ -93,9 +88,6 @@ exports.verifyDeliveryOtp = async (req, res) => {
 
     await order.update(updateData);
 
-   
-    //  Response
-  
     return res.json({
       success: true,
       message:

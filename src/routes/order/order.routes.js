@@ -16,6 +16,7 @@ const { getAdminActiveOrders } = require('../../controllers/ADMIN-Get-Orders-His
 const { getAdminOrderHistory } = require('../../controllers/ADMIN-Get-Orders-History/getAdminOrderHistory.controller');
 const { getOrderHistory } = require('../../controllers/USER — My Orders API/getOrderHistory.controller');
 const { addAddress, getUserAddresses, updateAddress, deleteAddress, setDefaultAddress, getAddressById } = require('../../controllers/order/Address.CRUD.controller');
+const adminAuthMiddleware = require('../../middleware/admin.auth.middleware');
 
 
 
@@ -34,7 +35,7 @@ router.post('/verify-payment', protected, orderController.verifyRazorpayPayment)
 //ADMIN — Update Order Status API
 router.patch("/admin/:orderNumber/status", updateOrderStatus)
 router.post("/admin/:orderNumber/send-otp", sendDeliveryOtp )
-router.post("/admin/verify-delivery-otp", verifyDeliveryOtp)
+router.post("/admin/verify-delivery-otp", adminAuthMiddleware, verifyDeliveryOtp)
 router.post("/admin/:orderNumber/refund", completeRefund)
 
 //USER — My Orders API

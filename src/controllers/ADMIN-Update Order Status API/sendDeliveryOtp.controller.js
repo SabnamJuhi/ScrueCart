@@ -30,8 +30,8 @@
 // };
 
 
+const crypto = require("crypto");
 const { Order, OrderAddress } = require("../../models");
-
 const { sendSMS, sendWhatsApp } = require("../../services/notification.service");
 
 exports.sendDeliveryOtp = async (req, res) => {
@@ -45,36 +45,60 @@ exports.sendDeliveryOtp = async (req, res) => {
 
     if (!order) throw new Error("Order not found");
 
-    // ✅ Correct phone field
-    const phone = order.address?.phoneNumber;
+    const now = new Date();
 
-    if (!phone) throw new Error("Customer phone number not found");
+    // ❌ If OTP still valid → block resend
+    if (order.otpExpiresAt && now < new Date(order.otpExpiresAt)) {
+      const secondsLeft = Math.ceil(
+        (new Date(order.otpExpiresAt) - now) / 1000
+      );
 
-    // Generate 4-digit OTP
-    const otp = Math.floor(1000 + Math.random() * 9000).toString();
+      throw new Error(
+        `OTP already sent. Try again in ${secondsLeft} seconds.`
+      );
+    }
 
+    // ✅ OTP expired OR not present → clear old OTP
     await order.update({
-      status: "out_for_delivery",
-      deliveryOtp: otp,
-      otpExpiresAt: new Date(Date.now() + 10 * 60 * 1000), // 10 min expiry
+      deliveryOtpHash: null,
+      otpExpiresAt: null,
+      otpVerified: false,
     });
 
+    // 📱 Get phone
+    const phone = order.address?.phoneNumber;
+    if (!phone) throw new Error("Customer phone number not found");
+
+    // 🔢 Generate new 4-digit OTP
+    const otp = Math.floor(1000 + Math.random() * 9000).toString();
+
+    // 🔐 Hash OTP
+    const otpHash = crypto.createHash("sha256").update(otp).digest("hex");
+
+    // 💾 Save new OTP
+    await order.update({
+      status: "out_for_delivery",
+      deliveryOtpHash: otpHash,
+      otpExpiresAt: new Date(Date.now() + 10 * 60 * 1000), // 10 min
+    });
+
+    // 📩 Send PLAIN OTP
     const message =
       `Your delivery OTP is ${otp}. ` +
-      `Please share it with the delivery partner only AFTER receiving the parcel.`;
+      `Share it with the delivery partner ONLY after receiving your parcel.`;
 
-    // Send SMS + WhatsApp
     await sendSMS(phone, message);
     await sendWhatsApp(phone, message);
 
-    console.log("Delivery OTP:", otp, "sent to:", phone);
+    console.log("NEW DELIVERY OTP:", otp, "sent to:", phone);
 
-    res.json({
+    return res.json({
       success: true,
-      message: "Delivery OTP sent successfully",
+      message: "New delivery OTP sent successfully",
     });
+
   } catch (err) {
-    res.status(400).json({
+    return res.status(400).json({
       success: false,
       message: err.message,
     });

@@ -112,10 +112,15 @@ const Order = sequelize.define(
       type: DataTypes.STRING,
       allowNull: true,
     },
-
-    // --- OTP Delivery Verification ---
-    deliveryOtp: {
+     // NEW → hashed OTP storage
+    deliveryOtpHash: {
       type: DataTypes.STRING,
+      allowNull: true,
+    },
+
+    // NEW → OTP expiry timestamp
+    otpExpiresAt: {
+      type: DataTypes.DATE,
       allowNull: true,
     },
     otpVerified: {

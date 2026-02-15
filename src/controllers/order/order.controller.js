@@ -1,3 +1,195 @@
+// const {
+//   Order,
+//   OrderItem,
+//   OrderAddress,
+//   CartItem,
+//   Product,
+//   ProductPrice,
+//   ProductVariant,
+//   VariantSize,
+//   sequelize,
+// } = require("../../models");
+// const UserAddress = require("../../models/orders/userAddress.model");
+// const { generateOrderNumber } = require("../../utils/helpers");
+
+// const Razorpay = require("razorpay");
+// const crypto = require("crypto");
+
+// const razorpay = new Razorpay({
+//   key_id: process.env.RAZORPAY_KEY_ID,
+//   key_secret: process.env.RAZORPAY_KEY_SECRET,
+// });
+
+// exports.placeOrder = async (req, res) => {
+//   let t;
+
+//   try {
+//     t = await sequelize.transaction();
+
+//     const userId = req.user.id;
+//     const { addressId, paymentMethod } = req.body;
+
+//     if (!addressId) throw new Error("Address is required");
+
+//     const userAddress = await UserAddress.findOne({
+//       where: { id: addressId, userId },
+//       transaction: t,
+//       lock: t.LOCK.UPDATE,
+//     });
+
+//     if (!userAddress) throw new Error("Invalid address");
+
+//     const cartItems = await CartItem.findAll({
+//       where: { userId },
+//       include: [
+//         {
+//           model: Product,
+//           as: "product",
+//           include: [{ model: ProductPrice, as: "price" }],
+//         },
+//         { model: ProductVariant, as: "variant" },
+//         { model: VariantSize, as: "variantSize" },
+//       ],
+//       transaction: t,
+//       lock: t.LOCK.UPDATE,
+//     });
+
+//     if (!cartItems.length) throw new Error("Cart is empty");
+
+//     let subtotal = 0;
+//     let totalTax = 0;
+
+//     for (const item of cartItems) {
+//       const price = Number(item.product?.price?.sellingPrice || 0);
+//       const qty = Number(item.quantity || 0);
+//       const stock = Number(item.variantSize?.stock || 0);
+//       const gstRate = Number(item.product?.gstRate || 0);
+
+//       if (!price || qty <= 0) throw new Error("Invalid cart item");
+//       if (stock < qty)
+//         throw new Error(`Insufficient stock for ${item.product.title}`);
+
+//       const itemSubtotal = price * qty;
+//       const itemTax = Math.round((itemSubtotal * gstRate) / 100);
+
+//       subtotal += itemSubtotal;
+//       totalTax += itemTax;
+//     }
+
+//     const shippingFee = subtotal > 5000 ? 0 : 150;
+//     const totalAmount = subtotal + totalTax + shippingFee;
+
+//     const isCOD = paymentMethod === "COD";
+
+//     const order = await Order.create(
+//       {
+//         userId,
+//         orderNumber: generateOrderNumber(),
+//         subtotal,
+//         taxAmount: totalTax,
+//         shippingFee,
+//         totalAmount,
+//         status: isCOD ? "confirmed" : "pending",
+//         paymentMethod,
+//         paymentStatus: isCOD ? "unpaid" : "unpaid",
+//       },
+//       { transaction: t },
+//     );
+
+//     // const orderItems = cartItems.map((item) => ({
+//     //   orderId: order.id,
+//     //   productId: item.productId,
+//     //   variantId: item.variantId,
+//     //   sizeId: item.sizeId,
+//     //   productName: item.product.title,
+//     //   variantColor: item.variant.colorName,
+//     //   sizeLabel: item.variantSize.size,
+//     //   quantity: item.quantity,
+//     //   priceAtPurchase: item.product.price.sellingPrice,
+//     //   totalPrice: item.product.price.sellingPrice * item.quantity,
+//     // }));
+//     const orderItems = cartItems.map((item) => {
+//       const price = Number(item.product.price.sellingPrice);
+//       const qty = Number(item.quantity);
+//       const gstRate = Number(item.product.gstRate || 0);
+
+//       const itemSubtotal = price * qty;
+//       const itemTax = Math.round((itemSubtotal * gstRate) / 100);
+
+//       return {
+//         orderId: order.id,
+//         productId: item.productId,
+//         variantId: item.variantId,
+//         sizeId: item.sizeId,
+
+//         productName: item.product.title,
+//         variantColor: item.variant.colorName,
+//         sizeLabel: item.variantSize.size,
+
+//         quantity: qty,
+//         priceAtPurchase: price,
+
+//         taxRate: gstRate, // ✅ GST snapshot
+//         taxAmount: itemTax, // ✅ GST snapshot
+
+//         totalPrice: itemSubtotal + itemTax,
+//       };
+//     });
+
+//     await OrderItem.bulkCreate(orderItems, { transaction: t });
+
+//     await OrderAddress.create(
+//       {
+//         orderId: order.id,
+//         fullName: userAddress.fullName,
+//         email: userAddress.email,
+//         phoneNumber: userAddress.phoneNumber,
+//         addressLine: userAddress.addressLine,
+//         country: userAddress.country,
+//         city: userAddress.city,
+//         state: userAddress.state,
+//         zipCode: userAddress.zipCode,
+//       },
+//       { transaction: t },
+//     );
+
+//     await t.commit();
+
+//     // ---------------- COD FLOW ----------------
+//     if (isCOD) {
+//       return res.json({
+//         success: true,
+//         message: "Order placed with COD",
+//         orderNumber: order.orderNumber,
+//         totalAmount,
+//       });
+//     }
+
+//     // ---------------- RAZORPAY ORDER ----------------
+//     const razorpayOrder = await razorpay.orders.create({
+//       amount: totalAmount * 100, // paisa
+//       currency: "INR",
+//       receipt: order.orderNumber,
+//     });
+
+//     return res.json({
+//       success: true,
+//       orderNumber: order.orderNumber,
+//       razorpayOrderId: razorpayOrder.id,
+//       amount: razorpayOrder.amount,
+//       currency: "INR",
+//       key: process.env.RAZORPAY_KEY_ID,
+//     });
+//   } catch (err) {
+//     if (t && !t.finished) await t.rollback();
+
+//     return res.status(500).json({
+//       success: false,
+//       message: err.message,
+//     });
+//   }
+// };
+
 const {
   Order,
   OrderItem,
@@ -9,11 +201,11 @@ const {
   VariantSize,
   sequelize,
 } = require("../../models");
+
 const UserAddress = require("../../models/orders/userAddress.model");
 const { generateOrderNumber } = require("../../utils/helpers");
 
 const Razorpay = require("razorpay");
-const crypto = require("crypto");
 
 const razorpay = new Razorpay({
   key_id: process.env.RAZORPAY_KEY_ID,
@@ -31,6 +223,7 @@ exports.placeOrder = async (req, res) => {
 
     if (!addressId) throw new Error("Address is required");
 
+    // 🔒 Lock address row
     const userAddress = await UserAddress.findOne({
       where: { id: addressId, userId },
       transaction: t,
@@ -39,6 +232,7 @@ exports.placeOrder = async (req, res) => {
 
     if (!userAddress) throw new Error("Invalid address");
 
+    // 🔒 Lock cart + stock rows
     const cartItems = await CartItem.findAll({
       where: { userId },
       include: [
@@ -59,6 +253,7 @@ exports.placeOrder = async (req, res) => {
     let subtotal = 0;
     let totalTax = 0;
 
+    // 🧮 Validate + calculate
     for (const item of cartItems) {
       const price = Number(item.product?.price?.sellingPrice || 0);
       const qty = Number(item.quantity || 0);
@@ -81,6 +276,7 @@ exports.placeOrder = async (req, res) => {
 
     const isCOD = paymentMethod === "COD";
 
+    // 🧾 Create Order
     const order = await Order.create(
       {
         userId,
@@ -91,23 +287,12 @@ exports.placeOrder = async (req, res) => {
         totalAmount,
         status: isCOD ? "confirmed" : "pending",
         paymentMethod,
-        paymentStatus: isCOD ? "unpaid" : "unpaid",
+        paymentStatus: "unpaid",
       },
-      { transaction: t },
+      { transaction: t }
     );
 
-    // const orderItems = cartItems.map((item) => ({
-    //   orderId: order.id,
-    //   productId: item.productId,
-    //   variantId: item.variantId,
-    //   sizeId: item.sizeId,
-    //   productName: item.product.title,
-    //   variantColor: item.variant.colorName,
-    //   sizeLabel: item.variantSize.size,
-    //   quantity: item.quantity,
-    //   priceAtPurchase: item.product.price.sellingPrice,
-    //   totalPrice: item.product.price.sellingPrice * item.quantity,
-    // }));
+    // 📦 Order Items snapshot
     const orderItems = cartItems.map((item) => {
       const price = Number(item.product.price.sellingPrice);
       const qty = Number(item.quantity);
@@ -129,8 +314,8 @@ exports.placeOrder = async (req, res) => {
         quantity: qty,
         priceAtPurchase: price,
 
-        taxRate: gstRate, // ✅ GST snapshot
-        taxAmount: itemTax, // ✅ GST snapshot
+        taxRate: gstRate,
+        taxAmount: itemTax,
 
         totalPrice: itemSubtotal + itemTax,
       };
@@ -138,6 +323,7 @@ exports.placeOrder = async (req, res) => {
 
     await OrderItem.bulkCreate(orderItems, { transaction: t });
 
+    // 📍 Snapshot address
     await OrderAddress.create(
       {
         orderId: order.id,
@@ -150,22 +336,46 @@ exports.placeOrder = async (req, res) => {
         state: userAddress.state,
         zipCode: userAddress.zipCode,
       },
-      { transaction: t },
+      { transaction: t }
     );
 
+    // ================= COD STOCK DEDUCTION =================
+    if (isCOD) {
+      for (const item of orderItems) {
+        await VariantSize.decrement("stock", {
+          by: item.quantity,
+          where: { id: item.sizeId },
+          transaction: t,
+        });
+
+        await ProductVariant.decrement("totalStock", {
+          by: item.quantity,
+          where: { id: item.variantId },
+          transaction: t,
+        });
+      }
+
+      // 🛒 Clear cart
+      await CartItem.destroy({
+        where: { userId },
+        transaction: t,
+      });
+    }
+
+    // ✅ Commit transaction
     await t.commit();
 
-    // ---------------- COD FLOW ----------------
+    // ================= COD RESPONSE =================
     if (isCOD) {
       return res.json({
         success: true,
-        message: "Order placed with COD",
+        message: "Order placed with Cash on Delivery",
         orderNumber: order.orderNumber,
         totalAmount,
       });
     }
 
-    // ---------------- RAZORPAY ORDER ----------------
+    // ================= RAZORPAY ORDER =================
     const razorpayOrder = await razorpay.orders.create({
       amount: totalAmount * 100, // paisa
       currency: "INR",
@@ -189,6 +399,7 @@ exports.placeOrder = async (req, res) => {
     });
   }
 };
+
 
 exports.verifyRazorpayPayment = async (req, res) => {
   const t = await sequelize.transaction();
@@ -269,6 +480,138 @@ exports.verifyRazorpayPayment = async (req, res) => {
       success: false,
       message: err.message,
     });
+  }
+};
+
+
+exports.razorpayWebhook = async (req, res) => {
+  const webhookSecret = process.env.RAZORPAY_WEBHOOK_SECRET;
+
+  try {
+    // 🔐 Verify signature
+    const signature = req.headers["x-razorpay-signature"];
+
+    const expectedSignature = crypto
+      .createHmac("sha256", webhookSecret)
+      .update(req.body)
+      .digest("hex");
+
+    if (signature !== expectedSignature) {
+      return res.status(400).json({ success: false, message: "Invalid signature" });
+    }
+
+    const event = JSON.parse(req.body.toString());
+
+    // ================= PAYMENT CAPTURED =================
+    if (event.event === "payment.captured") {
+      const payment = event.payload.payment.entity;
+      const orderNumber = payment.receipt;
+
+      let t = await sequelize.transaction();
+
+      try {
+        const order = await Order.findOne({
+          where: { orderNumber },
+          include: [{ model: OrderItem }],
+          transaction: t,
+          lock: t.LOCK.UPDATE,
+        });
+
+        if (!order) throw new Error("Order not found");
+
+        // 🛑 Idempotency check
+        if (order.paymentStatus === "paid") {
+          await t.rollback();
+          return res.json({ success: true, message: "Already processed" });
+        }
+
+        // ================= UPDATE ORDER =================
+        order.paymentStatus = "paid";
+        order.status = "confirmed";
+        await order.save({ transaction: t });
+
+        // ================= DEDUCT STOCK =================
+        for (const item of order.OrderItems) {
+          await VariantSize.decrement("stock", {
+            by: item.quantity,
+            where: { id: item.sizeId },
+            transaction: t,
+          });
+
+          await ProductVariant.decrement("totalStock", {
+            by: item.quantity,
+            where: { id: item.variantId },
+            transaction: t,
+          });
+        }
+
+        // ================= CLEAR CART =================
+        await CartItem.destroy({
+          where: { userId: order.userId },
+          transaction: t,
+        });
+
+        await t.commit();
+
+        return res.json({ success: true });
+      } catch (err) {
+        await t.rollback();
+        throw err;
+      }
+    }
+
+    // ================= PAYMENT FAILED =================
+    if (event.event === "payment.failed") {
+      const payment = event.payload.payment.entity;
+      const orderNumber = payment.receipt;
+
+      const order = await Order.findOne({ where: { orderNumber } });
+
+      if (order && order.paymentStatus !== "paid") {
+        order.paymentStatus = "failed";
+        order.status = "cancelled";
+        await order.save();
+      }
+
+      return res.json({ success: true });
+    }
+
+    // ================= REFUND PROCESSED =================
+    if (event.event === "refund.processed") {
+      const refund = event.payload.refund.entity;
+      const orderNumber = refund.notes?.orderNumber;
+
+      const order = await Order.findOne({
+        where: { orderNumber },
+        include: [{ model: OrderItem }],
+      });
+
+      if (order) {
+        order.status = "refunded";
+        await order.save();
+
+        // 🔄 Restore stock
+        for (const item of order.OrderItems) {
+          await VariantSize.increment("stock", {
+            by: item.quantity,
+            where: { id: item.sizeId },
+          });
+
+          await ProductVariant.increment("totalStock", {
+            by: item.quantity,
+            where: { id: item.variantId },
+          });
+        }
+      }
+
+      return res.json({ success: true });
+    }
+
+    // default response
+    return res.json({ success: true });
+  } catch (err) {
+    console.error("Webhook error:", err.message);
+    return res.status(500).json({ success: false });
   }
 };
 

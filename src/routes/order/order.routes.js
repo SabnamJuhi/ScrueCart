@@ -21,6 +21,7 @@ const { addAddress, getUserAddresses, updateAddress, deleteAddress, setDefaultAd
 
 // Create Order (Requires Login)
 router.post('/place', protected, orderController.placeOrder);
+router.post('/verify-payment', protected, orderController.verifyRazorpayPayment);
 
 // Payment Webhook (Public, called by Razorpay/Stripe)
 // router.post('/webhook/payment', orderController.handlePaymentWebhook);
@@ -67,6 +68,7 @@ router.patch("/user/address/default/:id", protected, setDefaultAddress);
 //   express.raw({ type: "application/json" }),
 //   razorpayWebhook
 // );
+router.post("/razorpay", express.raw({ type: "application/json" }),orderController.razorpayWebhook);
 
 
 

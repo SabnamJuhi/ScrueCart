@@ -33,6 +33,7 @@ const UserAddress = require("./orders/userAddress.model")
 
 //wishlist
 const Wishlist = require("./wishlist.model");
+const DeliveryBoy = require("./orders/deliveryBoy.model")
 
 
 
@@ -130,6 +131,8 @@ CartItem.belongsTo(VariantSize, { foreignKey: "sizeId", as: "variantSize" });
 
 VariantSize.hasMany(CartItem, { foreignKey: "sizeId", as: "cartItems" });
 
+Order.belongsTo(DeliveryBoy, { foreignKey: "deliveryBoyId", as: "deliveryBoy" });
+DeliveryBoy.hasMany(Order, { foreignKey: "deliveryBoyId" });
 
 
 // --- ORDER ITEM PRODUCT VARIANT RELATIONS (MISSING FIX) ---

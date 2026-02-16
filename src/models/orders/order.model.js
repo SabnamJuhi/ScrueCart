@@ -42,11 +42,6 @@
 
 // module.exports = Order;
 
-
-
-
-
-
 const { DataTypes } = require("sequelize");
 const sequelize = require("../../config/db");
 
@@ -80,27 +75,22 @@ const Order = sequelize.define(
     // --- Order Lifecycle ---
     status: {
       type: DataTypes.ENUM(
-        "pending",     
-        "confirmed",    
-        "processing",   
-        "shipped",      
+        "pending",
+        "confirmed",
+        "processing",
+        "shipped",
         "out_for_delivery",
-        "delivered",   
-        "completed",   
-        "cancelled",    
-        "returned"     
+        "delivered",
+        "completed",
+        "cancelled",
+        "returned",
       ),
       defaultValue: "pending",
     },
 
     // --- Payment ---
     paymentStatus: {
-      type: DataTypes.ENUM(
-        "unpaid",
-        "paid",
-        "failed",
-        "refunded"
-      ),
+      type: DataTypes.ENUM("unpaid", "paid", "failed", "refunded"),
       defaultValue: "unpaid",
     },
 
@@ -112,12 +102,15 @@ const Order = sequelize.define(
       type: DataTypes.STRING,
       allowNull: true,
     },
-     // NEW → hashed OTP storage
+    // NEW → hashed OTP storage
     deliveryOtpHash: {
       type: DataTypes.STRING,
       allowNull: true,
     },
-
+    deliveryBoyId: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+    },
     // NEW → OTP expiry timestamp
     otpExpiresAt: {
       type: DataTypes.DATE,
@@ -145,7 +138,7 @@ const Order = sequelize.define(
   {
     tableName: "orders",
     timestamps: true,
-  }
+  },
 );
 
 module.exports = Order;

@@ -23,3 +23,39 @@ exports.sendResetPasswordEmail = async (email, resetLink) => {
     `
   });
 };
+
+/* ================= DELIVERY ASSIGNMENT EMAIL ================= */
+exports.sendDeliveryAssignmentEmail = async ({
+  to,
+  orderNumber,
+  customerName,
+  phone,
+  address,
+  verificationLink,
+}) => {
+  await transporter.sendMail({
+    from: `"Admin" <${process.env.EMAIL_USER}>`,
+    to,
+    subject: "New Delivery Assigned",
+    html: `
+      <h2>New Order Assigned</h2>
+
+      <p><b>Order Number:</b> ${orderNumber}</p>
+      <p><b>Customer Name:</b> ${customerName}</p>
+      <p><b>Phone:</b> ${phone}</p>
+      <p><b>Address:</b> ${address}</p>
+
+      <br/>
+
+      <a href="${verificationLink}"
+         style="padding:10px 18px;background:#28a745;color:#fff;
+                text-decoration:none;border-radius:6px;">
+        Verify Delivery OTP
+      </a>
+
+      <p style="margin-top:15px;">
+        Open this link after delivering the parcel to verify OTP.
+      </p>
+    `,
+  });
+};

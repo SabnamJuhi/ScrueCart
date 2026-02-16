@@ -70,7 +70,7 @@ router.delete("/delivery-boy/:id", deleteDeliveryBoy);
 //ADMIN — Update Order Status API
 router.patch("/admin/:orderNumber/status", updateOrderStatus);
 router.post("/admin/:orderNumber/send-otp", adminAuthMiddleware, sendDeliveryOtp);
-router.post("/admin/verify-delivery-otp", adminAuthMiddleware, verifyDeliveryOtp);
+router.post("/admin/verify-delivery-otp", verifyDeliveryOtp);
 router.post("/admin/:orderNumber/refund", completeRefund);
 
 //USER — My Orders API

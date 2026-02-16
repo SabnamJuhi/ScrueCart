@@ -6,8 +6,8 @@ const transporter = nodemailer.createTransport({
   secure: false,
   auth: {
     user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS
-  }
+    pass: process.env.EMAIL_PASS,
+  },
 });
 
 exports.sendResetPasswordEmail = async (email, resetLink) => {
@@ -20,7 +20,7 @@ exports.sendResetPasswordEmail = async (email, resetLink) => {
       <p>Click below link to reset your password:</p>
       <a href="${resetLink}">${resetLink}</a>
       <p>This link expires in 15 minutes.</p>
-    `
+    `,
   });
 };
 
@@ -32,6 +32,8 @@ exports.sendDeliveryAssignmentEmail = async ({
   phone,
   address,
   verificationLink,
+   codPaymentLink = null,   
+  isCOD = false, 
 }) => {
   await transporter.sendMail({
     from: `"Admin" <${process.env.EMAIL_USER}>`,
@@ -56,6 +58,19 @@ exports.sendDeliveryAssignmentEmail = async ({
       <p style="margin-top:15px;">
         Open this link after delivering the parcel to verify OTP.
       </p>
+      ${
+        isCOD && codPaymentLink
+          ? `
+              <p><b>After collecting cash from customer:</b></p>
+              <a href="${codPaymentLink}"
+                style="display:inline-block;padding:10px 18px;background:#16a34a;color:#fff;
+                text-decoration:none;border-radius:6px;font-weight:bold;margin-top:10px;">
+                Confirm COD Payment
+              </a>
+            `
+          : ""
+      }
+
     `,
   });
 };

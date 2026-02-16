@@ -51,6 +51,7 @@ const {
 } = require("../../controllers/order/Address.CRUD.controller");
 const adminAuthMiddleware = require("../../middleware/admin.auth.middleware");
 const { createDeliveryBoy, updateDeliveryBoy, deleteDeliveryBoy, getDeliveryBoys } = require("../../controllers/order/deliveryBoy.CRUD.controller");
+const { confirmCodPayment } = require("../../controllers/ADMIN-Update Order Status API/confirmCodPayment.controller");
 
 // Create Order (Requires Login)
 router.post("/place", protected, orderController.placeOrder);
@@ -71,6 +72,7 @@ router.delete("/delivery-boy/:id", deleteDeliveryBoy);
 router.patch("/admin/:orderNumber/status", updateOrderStatus);
 router.post("/admin/:orderNumber/send-otp", adminAuthMiddleware, sendDeliveryOtp);
 router.post("/admin/verify-delivery-otp", verifyDeliveryOtp);
+router.patch("/admin/confirm-cod-payment", confirmCodPayment);
 router.post("/admin/:orderNumber/refund", completeRefund);
 
 //USER — My Orders API

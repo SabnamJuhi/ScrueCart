@@ -7,8 +7,6 @@ const {
 const DeliveryBoy = require("../../models/orders/deliveryBoy.model");
 const { sendDeliveryAssignmentEmail } = require("../../utils/email");
 
-
-
 /* ---------------- PHONE NORMALIZER ---------------- */
 const normalizePhone = (phone) => {
   if (!phone) return null;
@@ -52,7 +50,7 @@ exports.sendDeliveryOtp = async (req, res) => {
     /* ---------- BLOCK RESEND IF OTP VALID ---------- */
     if (order.otpExpiresAt && now < new Date(order.otpExpiresAt)) {
       const secondsLeft = Math.ceil(
-        (new Date(order.otpExpiresAt) - now) / 1000
+        (new Date(order.otpExpiresAt) - now) / 1000,
       );
       throw new Error(`OTP already sent. Try again in ${secondsLeft} seconds.`);
     }
@@ -78,7 +76,9 @@ ${order.address?.city || ""}
 ${order.address?.state || ""}
 ${order.address?.country || ""}
 ${order.address?.zipCode || ""}
-`.replace(/\s+/g, " ").trim();
+`
+      .replace(/\s+/g, " ")
+      .trim();
 
     /* ---------- GENERATE OTP ---------- */
     const otp = Math.floor(1000 + Math.random() * 9000).toString();
@@ -88,8 +88,11 @@ ${order.address?.zipCode || ""}
     /* ==================================================
        1️⃣ SEND EMAIL TO DELIVERY BOY (ALWAYS REQUIRED)
     ================================================== */
-    const verificationLink =
-      `${process.env.FRONTEND_URL}/verify-delivery?orderNumber=${orderNumber}`;
+    const verificationLink = `${process.env.FRONTEND_URL}/verify-delivery?orderNumber=${orderNumber}`;
+    let codPaymentLink = null;
+    if (order.paymentMethod === "COD") {
+      codPaymentLink = `${process.env.FRONTEND_URL}/confirm-cod-payment?orderNumber=${orderNumber}`;
+    }
 
     await sendDeliveryAssignmentEmail({
       to: boy.email,
@@ -99,6 +102,8 @@ ${order.address?.zipCode || ""}
       address,
       otp, // visible in email for DEV
       verificationLink,
+      codPaymentLink,
+      isCOD: order.paymentMethod === "COD"
     });
 
     /* ==================================================
@@ -145,7 +150,6 @@ ${order.address?.zipCode || ""}
       message: "Delivery boy assigned and OTP processed",
       ...(isDev && { devOtp: otp }),
     });
-
   } catch (err) {
     return res.status(400).json({
       success: false,

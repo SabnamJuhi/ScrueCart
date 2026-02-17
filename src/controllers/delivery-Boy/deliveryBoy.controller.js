@@ -123,6 +123,7 @@ exports.updateDeliveryBoy = async (req, res) => {
     const { id } = req.params;
     const { name, email, mobile, password, area, status } = req.body;
 
+    // 🔍 Find delivery boy
     const boy = await DeliveryBoy.findByPk(id);
     if (!boy) {
       return res.status(404).json({
@@ -131,16 +132,16 @@ exports.updateDeliveryBoy = async (req, res) => {
       });
     }
 
-    // normalize email if provided
+    // 📧 Normalize email if provided
     let normalizedEmail = boy.email;
     if (email) {
       normalizedEmail = email.toLowerCase().trim();
 
-      const existing = await DeliveryBoy.findOne({
+      const emailExists = await DeliveryBoy.findOne({
         where: { email: normalizedEmail },
       });
 
-      if (existing && existing.id !== boy.id) {
+      if (emailExists && emailExists.id !== boy.id) {
         return res.status(409).json({
           success: false,
           message: "Email already in use",
@@ -148,15 +149,31 @@ exports.updateDeliveryBoy = async (req, res) => {
       }
     }
 
+    // 📱 Check mobile uniqueness if provided
+    if (mobile) {
+      const mobileExists = await DeliveryBoy.findOne({
+        where: { mobile },
+      });
+
+      if (mobileExists && mobileExists.id !== boy.id) {
+        return res.status(409).json({
+          success: false,
+          message: "Mobile number already in use",
+        });
+      }
+    }
+
+    // ✏️ Update fields (partial update allowed)
     await boy.update({
       name: name ?? boy.name,
       email: normalizedEmail,
       mobile: mobile ?? boy.mobile,
-      password: password ?? boy.password, // plain password
+      password: password ?? boy.password, // plain text as per your requirement
       area: area ?? boy.area,
       status: status ?? boy.status,
     });
 
+    // 🚫 Hide password from response
     const updated = boy.toJSON();
     delete updated.password;
 
@@ -166,9 +183,12 @@ exports.updateDeliveryBoy = async (req, res) => {
       data: updated,
     });
   } catch (err) {
+    console.error("Update DeliveryBoy Error:", err);
+
     res.status(500).json({
       success: false,
       message: err.message,
+      error: err.errors || null, // shows Sequelize validation reason
     });
   }
 };

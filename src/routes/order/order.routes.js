@@ -41,7 +41,7 @@ router.post("/verify-payment", protected, orderController.verifyRazorpayPayment,
 router.post("/register", adminAuthMiddleware, registerDeliveryBoy);
 router.post("/login", loginDeliveryBoy);
 router.get("/delivery-boys", adminAuthMiddleware, getAllDeliveryBoys);
-router.put("/delivery-boys/:id", adminAuthMiddleware, updateDeliveryBoy);
+router.patch("/delivery-boys/:id", adminAuthMiddleware, updateDeliveryBoy);
 router.delete("/delivery-boys/:id",adminAuthMiddleware, deleteDeliveryBoy);
 router.patch("/:orderNumber/shipped", adminAuthMiddleware, updateOrderStatus);
 router.patch("/:orderNumber/out-for-delivery", adminAuthMiddleware, markOutForDelivery);

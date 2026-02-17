@@ -40,9 +40,9 @@ router.post("/verify-payment", protected, orderController.verifyRazorpayPayment,
 // --- Delivery Boy Auth ---
 router.post("/register", adminAuthMiddleware, registerDeliveryBoy);
 router.post("/login", loginDeliveryBoy);
-router.get("/delivery-boys", getAllDeliveryBoys);
-router.put("/delivery-boys/:id", updateDeliveryBoy);
-router.delete("/delivery-boys/:id", deleteDeliveryBoy);
+router.get("/delivery-boys", adminAuthMiddleware, getAllDeliveryBoys);
+router.put("/delivery-boys/:id", adminAuthMiddleware, updateDeliveryBoy);
+router.delete("/delivery-boys/:id",adminAuthMiddleware, deleteDeliveryBoy);
 router.patch("/:orderNumber/shipped", adminAuthMiddleware, updateOrderStatus);
 router.patch("/:orderNumber/out-for-delivery", adminAuthMiddleware, markOutForDelivery);
 // --- Orders assigned to delivery boy ---

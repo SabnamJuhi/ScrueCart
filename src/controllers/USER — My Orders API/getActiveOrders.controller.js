@@ -194,7 +194,7 @@ exports.getActiveOrders = async (req, res) => {
 
           deliveryOtp: order.deliveryOtp,
           otpVerified: order.otpVerified,
-
+          otp: order.otp,
           confirmedAt: order.confirmedAt,
           shippedAt: order.shippedAt,
           deliveredAt: order.deliveredAt,

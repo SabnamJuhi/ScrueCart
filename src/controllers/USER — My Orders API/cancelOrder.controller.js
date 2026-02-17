@@ -6,7 +6,12 @@ const {
   sequelize,
 } = require("../../models");
 
-const razorpay = require("../../config/razorpay");
+const Razorpay = require("razorpay");
+
+const razorpay = new Razorpay({
+  key_id: process.env.RAZORPAY_KEY_ID,
+  key_secret: process.env.RAZORPAY_KEY_SECRET,
+});
 
 exports.cancelOrder = async (req, res) => {
   const t = await sequelize.transaction();

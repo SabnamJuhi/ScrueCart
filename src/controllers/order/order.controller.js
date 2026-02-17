@@ -20,6 +20,9 @@ const razorpay = new Razorpay({
   key_id: process.env.RAZORPAY_KEY_ID,
   key_secret: process.env.RAZORPAY_KEY_SECRET,
 });
+ function generateOtp() {
+  return Math.floor(1000 + Math.random() * 9000).toString(); // 6-digit OTP
+}
 
 exports.placeOrder = async (req, res) => {
   let t;
@@ -85,6 +88,9 @@ exports.placeOrder = async (req, res) => {
 
     const isCOD = paymentMethod === "COD";
 
+   
+ const otp = generateOtp();
+
     //  Create Order
     const order = await Order.create(
       {
@@ -95,6 +101,7 @@ exports.placeOrder = async (req, res) => {
         shippingFee,
         totalAmount,
         status: isCOD ? "confirmed" : "pending",
+        otp,
         paymentMethod,
         paymentStatus: "unpaid",
       },

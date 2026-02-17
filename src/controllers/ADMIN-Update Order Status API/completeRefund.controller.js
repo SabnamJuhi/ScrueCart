@@ -1,3 +1,5 @@
+const { Order } = require("../../models");
+
 exports.completeRefund = async (req, res) => {
 try {
 const { orderNumber } = req.params;

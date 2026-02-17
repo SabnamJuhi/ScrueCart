@@ -609,16 +609,16 @@ exports.handlePaymentFailed = async(event) => {
 /**
  * Handle Refund Processed Webhook
  */
-exports.handleRefundProcessed = async(event) => {
+exports.handleRefundProcessed = async (event) => {
   const refund = event.payload.refund.entity;
   const orderNumber = refund.notes?.orderNumber;
 
   if (!orderNumber) {
-    console.error("Order number not found in refund notes");
+    console.error("Order number missing in refund notes");
     return;
   }
 
-  let t = await sequelize.transaction();
+  const t = await sequelize.transaction();
 
   try {
     const order = await Order.findOne({
@@ -629,19 +629,25 @@ exports.handleRefundProcessed = async(event) => {
     });
 
     if (!order) {
-      console.error(`Order not found for refund: ${orderNumber}`);
+      console.error("Order not found for refund:", orderNumber);
       await t.rollback();
       return;
     }
 
-    // Update order status
+    // -----------------------------
+    // Update refund state
+    // -----------------------------
     order.status = "refunded";
+    order.paymentStatus = "refunded";
     order.refundId = refund.id;
-    order.refundAmount = refund.amount / 100; // Convert from paisa
+    order.refundAmount = refund.amount / 100;
     order.refundedAt = new Date();
+
     await order.save({ transaction: t });
 
-    // Restore stock
+    // -----------------------------
+    // Restore stock AFTER refund success
+    // -----------------------------
     for (const item of order.OrderItems) {
       await VariantSize.increment("stock", {
         by: item.quantity,
@@ -657,13 +663,14 @@ exports.handleRefundProcessed = async(event) => {
     }
 
     await t.commit();
-    console.log(`Refund processed for order: ${orderNumber}`);
+
+    console.log("Refund completed for order:", orderNumber);
   } catch (err) {
     await t.rollback();
-    console.error("Error processing refund.processed:", err);
+    console.error("Refund webhook error:", err);
     throw err;
   }
-}
+};
 
 /**
  * Test Razorpay Configuration

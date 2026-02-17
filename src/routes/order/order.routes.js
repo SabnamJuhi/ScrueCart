@@ -22,6 +22,7 @@ const adminAuthMiddleware = require("../../middleware/admin.auth.middleware");
 const {getMyAssignedOrders, loginDeliveryBoy, getAllDeliveryBoys, registerDeliveryBoy, updateDeliveryBoy, deleteDeliveryBoy, verifyDeliveryOtp, confirmCodPayment} = require("../../controllers/delivery-Boy/deliveryBoy.controller");
 const {deliveryBoyAuth} = require("../../middleware/DeliveryBoy.Auth.middleware");
 
+
 // Create Order (Requires Login)
 router.post("/place", protected, orderController.placeOrder);
 router.post("/verify-payment", protected, orderController.verifyRazorpayPayment,);
@@ -58,7 +59,7 @@ router.post("/confirm-cod-payment", deliveryBoyAuth, confirmCodPayment);
 // router.post("/admin/verify-delivery-otp", verifyDeliveryOtp);
 // router.patch("/admin/confirm-cod-payment", confirmCodPayment);
 
-router.post("/admin/:orderNumber/refund", completeRefund);
+
 
 //USER — My Orders API
 router.get("/active", protected, getActiveOrders);
@@ -66,8 +67,9 @@ router.get("/completed", protected, getCompletedOrders);
 router.get("/history", protected, getOrderHistory);
 
 //cancel/return
-router.post("/:orderNumber/cancel", cancelOrder);
+router.post("/:orderNumber/cancel", protected, cancelOrder);
 router.post("/:orderNumber/return", returnOrder);
+router.post("/admin/:orderNumber/refund", completeRefund);
 
 // COD flow
 router.patch("/admin/:orderNumber/mark-delivered", markDeliveredCOD);
@@ -94,7 +96,9 @@ router.patch("/user/address/default/:id", protected, setDefaultAddress);
 router.post(
   "/razorpay",
   express.raw({ type: "application/json" }),
-  orderController.razorpayWebhook,
+  orderController.handleRefundProcessed,
+  orderController.handlePaymentFailed,
+  orderController.handlePaymentFailed
 );
 
 module.exports = router;

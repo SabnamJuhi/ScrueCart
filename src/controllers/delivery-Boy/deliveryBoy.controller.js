@@ -271,7 +271,9 @@ exports.verifyDeliveryOtp = async (req, res) => {
 
     // Update status based on payment method
     if (order.paymentMethod === "COD") {
-      updateData.status = "delivered"; // COD: mark delivered
+      updateData.status = "completed"; // COD: mark delivered
+      updateData.completedAt = new Date();
+      updateData.paymentStatus = "paid";
     } else {
       updateData.status = "completed"; // Online: mark completed
       updateData.completedAt = new Date();

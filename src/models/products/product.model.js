@@ -10,6 +10,18 @@ Product.init(
       primaryKey: true,
       autoIncrement: true,
     },
+    sku: {
+      type: DataTypes.VIRTUAL,
+      get() {
+        const categoryCode = this.Category?.code || "CAT";
+        const subCode = this.SubCategory?.code || "SUB";
+        const prodCatCode = this.ProductCategory?.code || "PRD";
+
+        const paddedId = String(this.id).padStart(6, "0");
+
+        return `${categoryCode}-${subCode}-${prodCatCode}-${paddedId}`;
+      },
+    },
 
     title: {
       type: DataTypes.STRING,

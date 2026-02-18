@@ -175,6 +175,11 @@ exports.getAdminActiveOrders = async (req, res) => {
           include: [
             {
               model: Product,
+               attributes: [
+                  "id",
+                  "title",
+                  "sku",       
+                ],
               include: [{ model: ProductPrice, as: "price" }],
             },
             {

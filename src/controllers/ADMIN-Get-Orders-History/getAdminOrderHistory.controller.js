@@ -174,7 +174,12 @@ exports.getAdminOrderHistory = async (req, res) => {
           model: OrderItem,
           include: [
             {
-              model: Product,
+              model: Product, 
+               attributes: [
+                  "id",
+                  "title",
+                  "sku",       
+                ],
               include: [{ model: ProductPrice, as: "price" }],
             },
             {

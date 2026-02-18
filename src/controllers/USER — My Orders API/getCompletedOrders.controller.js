@@ -138,7 +138,7 @@ exports.getCompletedOrders = async (req, res) => {
           include: [
             {
               model: Product,
-              attributes: ["id", "title"],
+               attributes: ["id", "title", "sku"],
               include: [{ model: ProductPrice, as: "price" }],
             },
             {

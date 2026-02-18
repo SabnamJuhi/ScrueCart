@@ -78,7 +78,15 @@ exports.getFilteredProducts = async (req, res) => {
     /* ---------- MAIN QUERY ---------- */
     const products = await Product.findAll({
       where: productWhere,
-
+       attributes: [
+          "id",
+          "sku",          
+          "title",
+          "brandName",
+          "badge",
+          "isActive",
+          "createdAt",
+        ],
       include: [
         /* CATEGORY */
         {

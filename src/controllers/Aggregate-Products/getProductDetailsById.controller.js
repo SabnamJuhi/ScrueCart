@@ -31,6 +31,7 @@ exports.getProductById = async (req, res) => {
     const product = await Product.findByPk(id, {
       attributes: [
         "id",
+        "sku",
         "title",
         "description",
         "brandName",

@@ -21,7 +21,7 @@ const razorpay = new Razorpay({
   key_secret: process.env.RAZORPAY_KEY_SECRET,
 });
  function generateOtp() {
-  return Math.floor(1000 + Math.random() * 9000).toString(); // 6-digit OTP
+  return Math.floor(1000 + Math.random() * 9000).toString(); // 4-digit OTP
 }
 
 exports.placeOrder = async (req, res) => {
@@ -151,6 +151,12 @@ exports.placeOrder = async (req, res) => {
         city: userAddress.city,
         state: userAddress.state,
         zipCode: userAddress.zipCode,
+         // Include Google location data
+        latitude: userAddress.latitude,
+        longitude: userAddress.longitude,
+        placeId: userAddress.placeId,
+        formattedAddress: userAddress.formattedAddress || 
+          `${userAddress.addressLine}, ${userAddress.city}, ${userAddress.state} ${userAddress.zipCode}, ${userAddress.country}`,
       },
       { transaction: t },
     );
@@ -299,221 +305,167 @@ exports.verifyRazorpayPayment = async (req, res) => {
   }
 };
 
+// exports.razorpayWebhook = async (req, res) => {
+//   const webhookSecret = process.env.RAZORPAY_WEBHOOK_SECRET;
+
+//   try {
+//     // 🔐 Verify signature
+//     const signature = req.headers["x-razorpay-signature"];
+
+//     const expectedSignature = crypto
+//       .createHmac("sha256", webhookSecret)
+//       .update(req.body)
+//       .digest("hex");
+
+//     if (signature !== expectedSignature) {
+//       return res
+//         .status(400)
+//         .json({ success: false, message: "Invalid signature" });
+//     }
+
+//     const event = JSON.parse(req.body.toString());
+
+//     // ================= PAYMENT CAPTURED =================
+//     if (event.event === "payment.captured") {
+//       const payment = event.payload.payment.entity;
+//       const orderNumber = payment.receipt;
+
+//       let t = await sequelize.transaction();
+
+//       try {
+//         const order = await Order.findOne({
+//           where: { orderNumber },
+//           include: [{ model: OrderItem }],
+//           transaction: t,
+//           lock: t.LOCK.UPDATE,
+//         });
+
+//         if (!order) throw new Error("Order not found");
+
+//         // 🛑 Idempotency check
+//         if (order.paymentStatus === "paid") {
+//           await t.rollback();
+//           return res.json({ success: true, message: "Already processed" });
+//         }
+
+//         // ================= UPDATE ORDER =================
+//         order.paymentStatus = "paid";
+//         order.status = "confirmed";
+//         await order.save({ transaction: t });
+
+//         // ================= DEDUCT STOCK =================
+//         for (const item of order.OrderItems) {
+//           await VariantSize.decrement("stock", {
+//             by: item.quantity,
+//             where: { id: item.sizeId },
+//             transaction: t,
+//           });
+
+//           await ProductVariant.decrement("totalStock", {
+//             by: item.quantity,
+//             where: { id: item.variantId },
+//             transaction: t,
+//           });
+//         }
+
+//         // ================= CLEAR CART =================
+//         await CartItem.destroy({
+//           where: { userId: order.userId },
+//           transaction: t,
+//         });
+
+//         await t.commit();
+
+//         return res.json({ success: true });
+//       } catch (err) {
+//         await t.rollback();
+//         throw err;
+//       }
+//     }
+
+//     // ================= PAYMENT FAILED =================
+//     if (event.event === "payment.failed") {
+//       const payment = event.payload.payment.entity;
+//       const orderNumber = payment.receipt;
+
+//       const order = await Order.findOne({ where: { orderNumber } });
+
+//       if (order && order.paymentStatus !== "paid") {
+//         order.paymentStatus = "failed";
+//         order.status = "cancelled";
+//         await order.save();
+//       }
+
+//       return res.json({ success: true });
+//     }
+
+//     // ================= REFUND PROCESSED =================
+//     if (event.event === "refund.processed") {
+//       const refund = event.payload.refund.entity;
+//       const orderNumber = refund.notes?.orderNumber;
+
+//       const order = await Order.findOne({
+//         where: { orderNumber },
+//         include: [{ model: OrderItem }],
+//       });
+
+//       if (order) {
+//         order.status = "refunded";
+//         await order.save();
+
+//         // 🔄 Restore stock
+//         for (const item of order.OrderItems) {
+//           await VariantSize.increment("stock", {
+//             by: item.quantity,
+//             where: { id: item.sizeId },
+//           });
+
+//           await ProductVariant.increment("totalStock", {
+//             by: item.quantity,
+//             where: { id: item.variantId },
+//           });
+//         }
+//       }
+
+//       return res.json({ success: true });
+//     }
+
+//     // default response
+//     return res.json({ success: true });
+//   } catch (err) {
+//     console.error("Webhook error:", err.message);
+//     return res.status(500).json({ success: false });
+//   }
+// };
+
 exports.razorpayWebhook = async (req, res) => {
-  const webhookSecret = process.env.RAZORPAY_WEBHOOK_SECRET;
+  const event = JSON.parse(req.body.toString());
 
   try {
-    // 🔐 Verify signature
-    const signature = req.headers["x-razorpay-signature"];
+    switch (event.event) {
+      case "refund.processed":
+        await exports.handleRefundProcessed(event);
+        break;
 
-    const expectedSignature = crypto
-      .createHmac("sha256", webhookSecret)
-      .update(req.body)
-      .digest("hex");
+      case "payment.failed":
+        await exports.handlePaymentFailed(event);
+        break;
 
-    if (signature !== expectedSignature) {
-      return res
-        .status(400)
-        .json({ success: false, message: "Invalid signature" });
+      case "payment.captured":
+        await exports.handlePaymentCaptured(event);
+        break;
+
+      default:
+        console.log("Unhandled Razorpay event:", event.event);
     }
 
-    const event = JSON.parse(req.body.toString());
-
-    // ================= PAYMENT CAPTURED =================
-    if (event.event === "payment.captured") {
-      const payment = event.payload.payment.entity;
-      const orderNumber = payment.receipt;
-
-      let t = await sequelize.transaction();
-
-      try {
-        const order = await Order.findOne({
-          where: { orderNumber },
-          include: [{ model: OrderItem }],
-          transaction: t,
-          lock: t.LOCK.UPDATE,
-        });
-
-        if (!order) throw new Error("Order not found");
-
-        // 🛑 Idempotency check
-        if (order.paymentStatus === "paid") {
-          await t.rollback();
-          return res.json({ success: true, message: "Already processed" });
-        }
-
-        // ================= UPDATE ORDER =================
-        order.paymentStatus = "paid";
-        order.status = "confirmed";
-        await order.save({ transaction: t });
-
-        // ================= DEDUCT STOCK =================
-        for (const item of order.OrderItems) {
-          await VariantSize.decrement("stock", {
-            by: item.quantity,
-            where: { id: item.sizeId },
-            transaction: t,
-          });
-
-          await ProductVariant.decrement("totalStock", {
-            by: item.quantity,
-            where: { id: item.variantId },
-            transaction: t,
-          });
-        }
-
-        // ================= CLEAR CART =================
-        await CartItem.destroy({
-          where: { userId: order.userId },
-          transaction: t,
-        });
-
-        await t.commit();
-
-        return res.json({ success: true });
-      } catch (err) {
-        await t.rollback();
-        throw err;
-      }
-    }
-
-    // ================= PAYMENT FAILED =================
-    if (event.event === "payment.failed") {
-      const payment = event.payload.payment.entity;
-      const orderNumber = payment.receipt;
-
-      const order = await Order.findOne({ where: { orderNumber } });
-
-      if (order && order.paymentStatus !== "paid") {
-        order.paymentStatus = "failed";
-        order.status = "cancelled";
-        await order.save();
-      }
-
-      return res.json({ success: true });
-    }
-
-    // ================= REFUND PROCESSED =================
-    if (event.event === "refund.processed") {
-      const refund = event.payload.refund.entity;
-      const orderNumber = refund.notes?.orderNumber;
-
-      const order = await Order.findOne({
-        where: { orderNumber },
-        include: [{ model: OrderItem }],
-      });
-
-      if (order) {
-        order.status = "refunded";
-        await order.save();
-
-        // 🔄 Restore stock
-        for (const item of order.OrderItems) {
-          await VariantSize.increment("stock", {
-            by: item.quantity,
-            where: { id: item.sizeId },
-          });
-
-          await ProductVariant.increment("totalStock", {
-            by: item.quantity,
-            where: { id: item.variantId },
-          });
-        }
-      }
-
-      return res.json({ success: true });
-    }
-
-    // default response
-    return res.json({ success: true });
+    res.json({ received: true });
   } catch (err) {
-    console.error("Webhook error:", err.message);
-    return res.status(500).json({ success: false });
+    console.error("Webhook error:", err);
+    res.status(500).json({ error: "Webhook processing failed" });
   }
 };
 
-// exports.razorpayWebhook = async (req, res) => {
-//   const signature = req.headers["x-razorpay-signature"];
-
-//   const expected = crypto
-//     .createHmac("sha256", process.env.RAZORPAY_WEBHOOK_SECRET)
-//     .update(JSON.stringify(req.body))
-//     .digest("hex");
-
-//   // Invalid webhook → ignore silently
-//   if (signature !== expected) {
-//     return res.status(400).json({ success: false });
-//   }
-
-//   const event = req.body.event;
-
-//   // We only care about payment captured
-//   if (event !== "payment.captured") {
-//     return res.json({ received: true });
-//   }
-
-//   const payment = req.body.payload.payment.entity;
-//   const orderNumber = payment.receipt;
-
-//   const t = await sequelize.transaction();
-
-//   try {
-//     const order = await Order.findOne({
-//       where: { orderNumber },
-//       include: [OrderItem],
-//       transaction: t,
-//       lock: true,
-//     });
-
-//     if (!order) throw new Error("Order not found");
-
-//     //  Idempotency protection
-//     if (order.paymentStatus === "paid") {
-//       await t.commit();
-//       return res.json({ received: true });
-//     }
-
-//     //  Mark paid
-//     await order.update(
-//       {
-//         status: "confirmed",
-//         paymentStatus: "paid",
-//         transactionId: payment.id,
-//         paidAt: new Date(),
-//         invoiceNumber: `INV-${Date.now()}`,
-//       },
-//       { transaction: t }
-//     );
-
-//     //  Deduct stock
-//     for (const item of order.OrderItems) {
-//       await VariantSize.decrement("stock", {
-//         by: item.quantity,
-//         where: { id: item.sizeId },
-//         transaction: t,
-//       });
-
-//       await ProductVariant.decrement("totalStock", {
-//         by: item.quantity,
-//         where: { id: item.variantId },
-//         transaction: t,
-//       });
-//     }
-
-//     //  Clear cart
-//     await CartItem.destroy({
-//       where: { userId: order.userId },
-//       transaction: t,
-//     });
-
-//     await t.commit();
-
-//     return res.json({ received: true });
-//   } catch (err) {
-//     await t.rollback();
-//     return res.status(500).json({ received: false });
-//   }
-// };
 
 /**
  * Handle Payment Captured Webhook

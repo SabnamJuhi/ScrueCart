@@ -19,6 +19,35 @@ UserAddress.init(
     state: { type: DataTypes.STRING, allowNull: false },
     zipCode: { type: DataTypes.STRING, allowNull: false },
 
+    // New Google Location Fields
+    latitude: { 
+      type: DataTypes.DECIMAL(10, 8), 
+      allowNull: true,
+      validate: {
+        min: -90,
+        max: 90
+      }
+    },
+    longitude: { 
+      type: DataTypes.DECIMAL(11, 8), 
+      allowNull: true,
+      validate: {
+        min: -180,
+        max: 180
+      }
+    },
+    placeId: { 
+      type: DataTypes.STRING, 
+      allowNull: true,
+      comment: "Google Maps Place ID"
+    },
+    formattedAddress: { 
+      type: DataTypes.TEXT, 
+      allowNull: true,
+      comment: "Full formatted address from Google"
+    },
+
+
     isDefault: {
       type: DataTypes.BOOLEAN,
       defaultValue: false,

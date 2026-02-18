@@ -228,13 +228,88 @@ exports.getMyAssignedOrders = async (req, res) => {
         deliveryBoyId: req.deliveryBoy.id,
         status: "out_for_delivery",
       },
-      include: [{ model: OrderAddress, as: "address" }],
+      include: [{ model: OrderAddress, as: "address",  attributes: ['fullName', 'phoneNumber', 'addressLine', 'city', 'state', 'zipCode', 'country', 'latitude', 'longitude', 'placeId', 'formattedAddress']
+      }],
       order: [["createdAt", "DESC"]],
     });
+     // Transform orders to include navigation links
+    const ordersWithLinks = orders.map(order => {
+      const orderJson = order.toJSON();
+      const address = orderJson.address;
 
-    res.json({ success: true, data: orders });
+      if (address) {
+        // Generate Google Maps links based on available data
+        if (address.latitude && address.longitude) {
+          // Exact coordinates available - best for navigation
+          address.navigationLinks = {
+            googleMaps: `https://www.google.com/maps?q=${address.latitude},${address.longitude}`,
+            googleMapsDirections: `https://www.google.com/maps/dir/?api=1&destination=${address.latitude},${address.longitude}`,
+            waze: `https://waze.com/ul?ll=${address.latitude},${address.longitude}&navigate=yes`,
+            appleMaps: `https://maps.apple.com/?ll=${address.latitude},${address.longitude}&q=${encodeURIComponent(address.formattedAddress || 'Delivery Location')}`,
+            uber: `https://m.uber.com/ul/?action=setPickup&pickup=my_location&dropoff[latitude]=${address.latitude}&dropoff[longitude]=${address.longitude}&dropoff[nickname]=${encodeURIComponent(address.formattedAddress || 'Delivery')}`
+          };
+          // Also add a simple clickable link
+          address.googleMapsLink = `https://www.google.com/maps?q=${address.latitude},${address.longitude}`;
+          
+        } else if (address.placeId) {
+          // Has Google Place ID - can use place-based link
+          address.navigationLinks = {
+            googleMaps: `https://www.google.com/maps/place/?q=place_id:${address.placeId}`,
+            googleMapsDirections: `https://www.google.com/maps/dir/?api=1&destination_place_id=${address.placeId}`
+          };
+          address.googleMapsLink = `https://www.google.com/maps/place/?q=place_id:${address.placeId}`;
+          
+        } else if (address.formattedAddress) {
+          // Fallback to text search
+          const encodedAddress = encodeURIComponent(address.formattedAddress);
+          address.navigationLinks = {
+            googleMaps: `https://www.google.com/maps/search/?api=1&query=${encodedAddress}`,
+            googleMapsDirections: `https://www.google.com/maps/dir/?api=1&destination=${encodedAddress}`
+          };
+          address.googleMapsLink = `https://www.google.com/maps/search/?api=1&query=${encodedAddress}`;
+          
+        } else {
+          // Last resort - construct from components
+          const addressString = `${address.addressLine}, ${address.city}, ${address.state} ${address.zipCode}, ${address.country}`;
+          const encodedAddress = encodeURIComponent(addressString);
+          address.navigationLinks = {
+            googleMaps: `https://www.google.com/maps/search/?api=1&query=${encodedAddress}`,
+            googleMapsDirections: `https://www.google.com/maps/dir/?api=1&destination=${encodedAddress}`
+          };
+          address.googleMapsLink = `https://www.google.com/maps/search/?api=1&query=${encodedAddress}`;
+        }
+
+        // Add coordinates object for easy access
+        if (address.latitude && address.longitude) {
+          address.coordinates = {
+            lat: parseFloat(address.latitude),
+            lng: parseFloat(address.longitude)
+          };
+        }
+
+        // Add a simple method to get best available link
+        address.getBestNavigationLink = () => {
+          if (address.latitude && address.longitude) {
+            return `https://www.google.com/maps/dir/?api=1&destination=${address.latitude},${address.longitude}`;
+          }
+          return address.googleMapsLink;
+        };
+      }
+
+      return orderJson;
+    });
+
+    res.json({ 
+      success: true, 
+      count: ordersWithLinks.length,
+      data: ordersWithLinks 
+    });
+    
   } catch (err) {
-    res.status(500).json({ success: false, message: err.message });
+    res.status(500).json({ 
+      success: false, 
+      message: err.message 
+    });
   }
 };
 

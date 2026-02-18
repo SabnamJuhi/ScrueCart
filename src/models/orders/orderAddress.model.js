@@ -46,6 +46,49 @@ OrderAddress.init(
       type: DataTypes.STRING,
       allowNull: false,
     },
+      // Google Location Fields
+    latitude: { 
+      type: DataTypes.DECIMAL(10, 8), 
+      allowNull: true,
+    },
+    longitude: { 
+      type: DataTypes.DECIMAL(11, 8), 
+      allowNull: true,
+    },
+    placeId: { 
+      type: DataTypes.STRING, 
+      allowNull: true,
+    },
+    formattedAddress: { 
+      type: DataTypes.TEXT, 
+      allowNull: true,
+    },
+
+    // Virtual field for Google Maps link
+    googleMapsLink: {
+      type: DataTypes.VIRTUAL,
+      get() {
+        if (this.latitude && this.longitude) {
+          return `https://www.google.com/maps?q=${this.latitude},${this.longitude}`;
+        }
+        if (this.formattedAddress) {
+          return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(this.formattedAddress)}`;
+        }
+        return null;
+      }
+    },
+
+    // Directions link for delivery partners
+    directionsLink: {
+      type: DataTypes.VIRTUAL,
+      get() {
+        if (this.latitude && this.longitude) {
+          return `https://www.google.com/maps/dir/?api=1&destination=${this.latitude},${this.longitude}`;
+        }
+        return null;
+      }
+    },
+
     // Added Shipping Type field
     shippingType: {
       type: DataTypes.ENUM("delivery", "pickup"),

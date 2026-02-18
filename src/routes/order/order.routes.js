@@ -21,6 +21,7 @@ const adminAuthMiddleware = require("../../middleware/admin.auth.middleware");
 // const {confirmCodPayment} = require("../../controllers/ADMIN-Update Order Status API/confirmCodPayment.controller");
 const {getMyAssignedOrders, loginDeliveryBoy, getAllDeliveryBoys, registerDeliveryBoy, updateDeliveryBoy, deleteDeliveryBoy, verifyDeliveryOtp, confirmCodPayment} = require("../../controllers/delivery-Boy/deliveryBoy.controller");
 const {deliveryBoyAuth} = require("../../middleware/DeliveryBoy.Auth.middleware");
+const { getAddressWithGoogleLink } = require("../../controllers/order/google.Address.controller");
 
 
 // Create Order (Requires Login)
@@ -88,6 +89,16 @@ router.put("/user/address/:id", protected, updateAddress);
 router.delete("/user/address/:id", protected, deleteAddress);
 router.patch("/user/address/default/:id", protected, setDefaultAddress);
 
+
+//Google address APIS
+// Add new address
+router.post("/gLOcation", protected, addAddress);
+// Update full address OR add google location later
+router.put("/gLOcation/:id", protected, updateAddress);
+// Get single adress with Google Maps link
+router.get("/gLOcation/:id/google", protected, getAddressWithGoogleLink);
+
+
 // router.post(
 //   "/razorpay-webhook",
 //   express.raw({ type: "application/json" }),
@@ -96,9 +107,10 @@ router.patch("/user/address/default/:id", protected, setDefaultAddress);
 router.post(
   "/razorpay",
   express.raw({ type: "application/json" }),
-  orderController.handleRefundProcessed,
-  orderController.handlePaymentFailed,
-  orderController.handlePaymentFailed
+   orderController.razorpayWebhook
+  // orderController.handleRefundProcessed,
+  // orderController.handlePaymentFailed,
+  // orderController.handlePaymentFailed
 );
 
 module.exports = router;

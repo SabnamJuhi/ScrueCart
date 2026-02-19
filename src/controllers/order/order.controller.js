@@ -16,12 +16,14 @@ const { generateOrderNumber } = require("../../utils/helpers");
 
 const Razorpay = require("razorpay");
 
-
 const razorpay = new Razorpay({
   key_id: process.env.RAZORPAY_KEY_ID,
   key_secret: process.env.RAZORPAY_KEY_SECRET,
 });
- function generateOtp() {
+const { generateInvoice } = require("../../utils/generateInvoice");
+const { sendInvoiceEmail } = require("../../utils/email");
+
+function generateOtp() {
   return Math.floor(1000 + Math.random() * 9000).toString(); // 4-digit OTP
 }
 
@@ -89,7 +91,6 @@ const razorpay = new Razorpay({
 
 //     const isCOD = paymentMethod === "COD";
 
-   
 //  const otp = generateOtp();
 
 //     //  Create Order
@@ -156,7 +157,7 @@ const razorpay = new Razorpay({
 //         latitude: userAddress.latitude,
 //         longitude: userAddress.longitude,
 //         placeId: userAddress.placeId,
-//         formattedAddress: userAddress.formattedAddress || 
+//         formattedAddress: userAddress.formattedAddress ||
 //           `${userAddress.addressLine}, ${userAddress.city}, ${userAddress.state} ${userAddress.zipCode}, ${userAddress.country}`,
 //       },
 //       { transaction: t },
@@ -223,7 +224,6 @@ const razorpay = new Razorpay({
 //   }
 // };
 
-
 exports.placeOrder = async (req, res) => {
   let t;
 
@@ -235,7 +235,6 @@ exports.placeOrder = async (req, res) => {
 
     if (!addressId) throw new Error("Address is required");
 
-    // 🔒 Lock address row
     const userAddress = await UserAddress.findOne({
       where: { id: addressId, userId },
       transaction: t,
@@ -244,12 +243,9 @@ exports.placeOrder = async (req, res) => {
 
     if (!userAddress) throw new Error("Invalid address");
 
-    // =========================================================
-    // 📦 STEP 1: Decide order source → CART or BUY NOW
-    // =========================================================
-
     let orderSourceItems = [];
 
+    // ================= BUY NOW =================
     if (buyNow) {
       const { productId, variantId, sizeId, quantity } = buyNow;
 
@@ -283,8 +279,10 @@ exports.placeOrder = async (req, res) => {
           sizeId,
         },
       ];
-    } else {
-      // ================= CART FLOW =================
+    }
+
+    // ================= CART =================
+    else {
       orderSourceItems = await CartItem.findAll({
         where: { userId },
         include: [
@@ -303,10 +301,7 @@ exports.placeOrder = async (req, res) => {
       if (!orderSourceItems.length) throw new Error("Cart is empty");
     }
 
-    // =========================================================
-    // 🧮 STEP 2: Validate stock + calculate totals
-    // =========================================================
-
+    // ================= CALCULATE =================
     let subtotal = 0;
     let totalTax = 0;
 
@@ -317,7 +312,6 @@ exports.placeOrder = async (req, res) => {
       const gstRate = Number(item.product?.gstRate || 0);
 
       if (!price || qty <= 0) throw new Error("Invalid order item");
-
       if (stock < qty)
         throw new Error(`Insufficient stock for ${item.product.title}`);
 
@@ -334,10 +328,7 @@ exports.placeOrder = async (req, res) => {
     const isCOD = paymentMethod === "COD";
     const otp = generateOtp();
 
-    // =========================================================
-    // 🧾 STEP 3: Create Order
-    // =========================================================
-
+    // ================= CREATE ORDER =================
     const order = await Order.create(
       {
         userId,
@@ -351,13 +342,10 @@ exports.placeOrder = async (req, res) => {
         paymentMethod,
         paymentStatus: "unpaid",
       },
-      { transaction: t }
+      { transaction: t },
     );
 
-    // =========================================================
-    // 🧾 STEP 4: Create Order Items snapshot
-    // =========================================================
-
+    // ================= ORDER ITEMS =================
     const orderItems = orderSourceItems.map((item) => {
       const price = Number(item.product.price.sellingPrice);
       const qty = Number(item.quantity);
@@ -371,28 +359,21 @@ exports.placeOrder = async (req, res) => {
         productId: item.productId,
         variantId: item.variantId,
         sizeId: item.sizeId,
-
         productName: item.product.title,
         variantColor: item.variant.colorName,
         sizeLabel: item.variantSize.size,
-
         quantity: qty,
         priceAtPurchase: price,
-
         taxRate: gstRate,
         taxAmount: itemTax,
-
         totalPrice: itemSubtotal + itemTax,
       };
     });
 
     await OrderItem.bulkCreate(orderItems, { transaction: t });
 
-    // =========================================================
-    // 📍 STEP 5: Snapshot address
-    // =========================================================
-
-    await OrderAddress.create(
+    // ================= ADDRESS SNAPSHOT =================
+    let orderAddress = await OrderAddress.create(
       {
         orderId: order.id,
         fullName: userAddress.fullName,
@@ -403,7 +384,6 @@ exports.placeOrder = async (req, res) => {
         city: userAddress.city,
         state: userAddress.state,
         zipCode: userAddress.zipCode,
-
         latitude: userAddress.latitude,
         longitude: userAddress.longitude,
         placeId: userAddress.placeId,
@@ -411,13 +391,10 @@ exports.placeOrder = async (req, res) => {
           userAddress.formattedAddress ||
           `${userAddress.addressLine}, ${userAddress.city}, ${userAddress.state} ${userAddress.zipCode}, ${userAddress.country}`,
       },
-      { transaction: t }
+      { transaction: t },
     );
 
-    // =========================================================
-    // 📦 STEP 6: Stock deduction (COD only)
-    // =========================================================
-
+    // ================= STOCK DEDUCT (COD) =================
     if (isCOD) {
       for (const item of orderItems) {
         await VariantSize.decrement("stock", {
@@ -425,7 +402,6 @@ exports.placeOrder = async (req, res) => {
           where: { id: item.sizeId },
           transaction: t,
         });
-
         await ProductVariant.decrement("totalStock", {
           by: item.quantity,
           where: { id: item.variantId },
@@ -433,25 +409,37 @@ exports.placeOrder = async (req, res) => {
         });
       }
 
-      // ❗ Clear cart ONLY if cart checkout
       if (!buyNow) {
-        await CartItem.destroy({
-          where: { userId },
-          transaction: t,
-        });
+        await CartItem.destroy({ where: { userId }, transaction: t });
       }
     }
 
-    // =========================================================
-    // ✅ STEP 7: Commit DB transaction
-    // =========================================================
-
     await t.commit();
 
-    // =========================================================
-    // 💵 STEP 8: COD response
-    // =========================================================
+    // ================= GENERATE + SEND INVOICE =================
+    console.log("ORDER ADDRESS DEBUG:", orderAddress);
 
+    // 1️⃣ generate pdf
+    const filePath = await generateInvoice({
+      order,
+      items: orderItems,
+      address: orderAddress,
+    });
+console.log("INVOICE PATH:", filePath);
+    // await sendInvoiceEmail({
+    //   to: orderAddress.email,
+    //   orderNumber: order.orderNumber,
+    //   filePath,
+    // });
+    // ✅ SEND EMAILS HERE (correct place)
+    await sendInvoiceEmail({
+      orderNumber: order.orderNumber,
+      orderAddress, // must contain email
+      totalAmount: order.totalAmount,
+      // filePath,
+    });
+
+    // ================= COD RESPONSE =================
     if (isCOD) {
       return res.json({
         success: true,
@@ -461,10 +449,7 @@ exports.placeOrder = async (req, res) => {
       });
     }
 
-    // =========================================================
-    // 💳 STEP 9: Razorpay order creation
-    // =========================================================
-
+    // ================= RAZORPAY =================
     const razorpayOrder = await razorpay.orders.create({
       amount: totalAmount * 100,
       currency: "INR",
@@ -488,8 +473,6 @@ exports.placeOrder = async (req, res) => {
     });
   }
 };
-
-
 
 exports.verifyRazorpayPayment = async (req, res) => {
   const t = await sequelize.transaction();
@@ -734,7 +717,6 @@ exports.razorpayWebhook = async (req, res) => {
   }
 };
 
-
 /**
  * Handle Payment Captured Webhook
  */
@@ -805,7 +787,7 @@ exports.handlePaymentCaptured = async (event) => {
 /**
  * Handle Payment Failed Webhook
  */
-exports.handlePaymentFailed = async(event) => {
+exports.handlePaymentFailed = async (event) => {
   const payment = event.payload.payment.entity;
   const orderNumber = payment.receipt;
 
@@ -824,7 +806,7 @@ exports.handlePaymentFailed = async(event) => {
     console.error("Error processing payment.failed:", err);
     throw err;
   }
-}
+};
 
 /**
  * Handle Refund Processed Webhook

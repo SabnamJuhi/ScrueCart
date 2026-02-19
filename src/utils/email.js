@@ -107,3 +107,47 @@ exports.sendAutoReplyToCustomer = async ({ name, email }) => {
     `,
   });
 };
+
+
+/**
+ * Send order email to company and customer
+ */
+exports.sendInvoiceEmail = async ({ orderNumber, orderAddress, totalAmount }) => {
+  if (!orderAddress?.email) {
+    throw new Error("Customer email missing");
+  }
+
+  const companyEmail = process.env.EMAIL_USER; // company receives mail
+
+  // ---------- COMPANY EMAIL ----------
+  await transporter.sendMail({
+    from: `"ScrewKart Orders" <${process.env.EMAIL_USER}>`,
+    to: companyEmail,
+    subject: `🛒 New Order Received - ${orderNumber}`,
+    html: `
+      <h2>New Order Received</h2>
+      <p><b>Order Number:</b> ${orderNumber}</p>
+      <p><b>Customer Name:</b> ${orderAddress.fullName}</p>
+      <p><b>Email:</b> ${orderAddress.email}</p>
+      <p><b>Phone:</b> ${orderAddress.phoneNumber}</p>
+      <p><b>Address:</b> ${orderAddress.addressLine}, ${orderAddress.city}, ${orderAddress.state}</p>
+      <p><b>Total Amount:</b> ₹${totalAmount}</p>
+    `,
+  });
+
+  // ---------- CUSTOMER EMAIL ----------
+  await transporter.sendMail({
+    from: `"ScrewKart" <${process.env.EMAIL_USER}>`,
+    to: orderAddress.email, // ⚠️ THIS fixes "No recipients defined"
+    subject: `✅ Order Confirmed - ${orderNumber}`,
+    html: `
+      <h2>Thank you for your order!</h2>
+      <p>Hello ${orderAddress.fullName},</p>
+      <p>Your order <b>${orderNumber}</b> has been placed successfully.</p>
+      <p><b>Total Paid:</b> ₹${totalAmount}</p>
+      <p>We will deliver it soon 🚚</p>
+      <br/>
+      <p>Regards,<br/>ScrewKart Team</p>
+    `,
+  });
+};

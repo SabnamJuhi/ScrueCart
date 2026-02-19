@@ -74,3 +74,36 @@ exports.sendDeliveryAssignmentEmail = async ({
     `,
   });
 };
+
+
+// send mail to company
+exports.sendContactToCompany = async ({ name, email, phone, message }) => {
+  return transporter.sendMail({
+    from: `"Website Contact" <${process.env.EMAIL_USER}>`,
+    to: process.env.EMAIL_USER, // company email
+    subject: "New Contact Enquiry",
+    html: `
+      <h2>New Enquiry Received</h2>
+      <p><b>Name:</b> ${name}</p>
+      <p><b>Email:</b> ${email}</p>
+      <p><b>Phone:</b> ${phone}</p>
+      <p><b>Message:</b><br/> ${message}</p>
+    `,
+  });
+};
+
+// auto reply to customer
+exports.sendAutoReplyToCustomer = async ({ name, email }) => {
+  return transporter.sendMail({
+    from: `"ScrewKart Support" <${process.env.EMAIL_USER}>`,
+    to: email,
+    subject: "We received your enquiry",
+    html: `
+      <p>Hi ${name},</p>
+      <p>Thank you for contacting ScrewKart.  
+      Our team will get back to you shortly.</p>
+
+      <p>Regards,<br/>ScrewKart Team</p>
+    `,
+  });
+};

@@ -41,6 +41,10 @@ app.use("/api/order", require("./routes/order/order.routes"))
 app.use("/api/wishlist", require("./routes/wishlist/wishlist.routes"))
 app.use("/api/bulkorder", require("./routes/Bulk_Upload_route/bulkUpload.route"))
 
+app.use("/api/contact", require("./routes/contact/contact.routes"));
+
+app.use("/api/banners", require("./routes/banner/banner.routes"));
+
 
 app.use((err, req, res, next) => {
   console.error("GLOBAL ERROR:", err);

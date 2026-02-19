@@ -45,6 +45,8 @@ app.use("/api/contact", require("./routes/contact/contact.routes"));
 
 app.use("/api/banners", require("./routes/banner/banner.routes"));
 
+app.use("/api/checkout", require("./routes/checkout/checkout.routes"));
+
 
 app.use((err, req, res, next) => {
   console.error("GLOBAL ERROR:", err);

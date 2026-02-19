@@ -39,6 +39,7 @@ app.use("/api/order", require("./routes/order/order.routes"))
 // app.use('/uploads', express.static(path.join(__dirname, 'public/uploads')));
 
 app.use("/api/wishlist", require("./routes/wishlist/wishlist.routes"))
+app.use("/api/bulkorder", require("./routes/Bulk_Upload_route/bulkUpload.route"))
 
 
 app.use((err, req, res, next) => {

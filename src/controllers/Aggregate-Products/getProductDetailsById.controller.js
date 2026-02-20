@@ -36,6 +36,7 @@ exports.getProductById = async (req, res) => {
         "description",
         "brandName",
         "badge",
+        "gstRate",
         "isActive",
         "createdAt",
         "updatedAt",

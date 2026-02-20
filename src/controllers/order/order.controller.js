@@ -20,7 +20,7 @@ const razorpay = new Razorpay({
   key_id: process.env.RAZORPAY_KEY_ID,
   key_secret: process.env.RAZORPAY_KEY_SECRET,
 });
-const { generateInvoice } = require("../../utils/generateInvoice");
+// const { generateInvoice } = require("../../utils/generateInvoice");
 const { sendInvoiceEmail } = require("../../utils/email");
 
 function generateOtp() {
@@ -419,13 +419,13 @@ exports.placeOrder = async (req, res) => {
     // ================= GENERATE + SEND INVOICE =================
     console.log("ORDER ADDRESS DEBUG:", orderAddress);
 
-    // 1️⃣ generate pdf
-    const filePath = await generateInvoice({
-      order,
-      items: orderItems,
-      address: orderAddress,
-    });
-console.log("INVOICE PATH:", filePath);
+//     // 1️⃣ generate pdf
+//     const filePath = await generateInvoice({
+//       order,
+//       items: orderItems,
+//       address: orderAddress,
+//     });
+// // console.log("INVOICE PATH:", filePath);
     // await sendInvoiceEmail({
     //   to: orderAddress.email,
     //   orderNumber: order.orderNumber,

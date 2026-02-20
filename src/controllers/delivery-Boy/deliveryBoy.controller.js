@@ -5,7 +5,10 @@ const DeliveryBoy = require("../../models/orders/deliveryBoy.model");
 const { Order, OrderAddress } = require("../../models");
 const { hashPassword, comparePassword } = require("../../utils/password");
 const { generateToken } = require("../../utils/jwt");
-
+const {
+  getPaginationOptions,
+  formatPagination,
+} = require("../../utils/paginate");
 
 /**
  * REGISTER DELIVERY BOY (Admin or Self)
@@ -57,7 +60,6 @@ exports.registerDeliveryBoy = async (req, res) => {
   }
 };
 
-
 exports.loginDeliveryBoy = async (req, res) => {
   try {
     const { email, password } = req.body;
@@ -99,15 +101,25 @@ exports.loginDeliveryBoy = async (req, res) => {
 
 exports.getAllDeliveryBoys = async (req, res) => {
   try {
-    const boys = await DeliveryBoy.findAll({
+    const paginationOptions = getPaginationOptions(req.query);
+    const boys = await DeliveryBoy.findAndCountAll({
       attributes: { exclude: ["password"] }, // hide password
       order: [["createdAt", "DESC"]],
+      distinct: true,
+      ...paginationOptions,
     });
+    const response = formatPagination(
+      {
+        count: boys.count,
+        rows: boys.rows,
+      },
+      paginationOptions.currentPage,
+      paginationOptions.limit,
+    );
 
-    res.json({
+    return res.json({
       success: true,
-      count: boys.length,
-      data: boys,
+      ...response,
     });
   } catch (err) {
     res.status(500).json({
@@ -116,7 +128,6 @@ exports.getAllDeliveryBoys = async (req, res) => {
     });
   }
 };
-
 
 exports.updateDeliveryBoy = async (req, res) => {
   try {
@@ -219,21 +230,39 @@ exports.deleteDeliveryBoy = async (req, res) => {
   }
 };
 
-
-
 exports.getMyAssignedOrders = async (req, res) => {
   try {
-    const orders = await Order.findAll({
+    const paginationOptions = getPaginationOptions(req.query);
+    const orders = await Order.findAndCountAll({
       where: {
         deliveryBoyId: req.deliveryBoy.id,
         status: "out_for_delivery",
       },
-      include: [{ model: OrderAddress, as: "address",  attributes: ['fullName', 'phoneNumber', 'addressLine', 'city', 'state', 'zipCode', 'country', 'latitude', 'longitude', 'placeId', 'formattedAddress']
-      }],
+      include: [
+        {
+          model: OrderAddress,
+          as: "address",
+          attributes: [
+            "fullName",
+            "phoneNumber",
+            "addressLine",
+            "city",
+            "state",
+            "zipCode",
+            "country",
+            "latitude",
+            "longitude",
+            "placeId",
+            "formattedAddress",
+          ],
+        },
+      ],
       order: [["createdAt", "DESC"]],
+      distinct: true,
+      ...paginationOptions,
     });
-     // Transform orders to include navigation links
-    const ordersWithLinks = orders.map(order => {
+    // Transform orders to include navigation links
+    const ordersWithLinks = orders.rows.map((order) => {
       const orderJson = order.toJSON();
       const address = orderJson.address;
 
@@ -245,36 +274,33 @@ exports.getMyAssignedOrders = async (req, res) => {
             googleMaps: `https://www.google.com/maps?q=${address.latitude},${address.longitude}`,
             googleMapsDirections: `https://www.google.com/maps/dir/?api=1&destination=${address.latitude},${address.longitude}`,
             waze: `https://waze.com/ul?ll=${address.latitude},${address.longitude}&navigate=yes`,
-            appleMaps: `https://maps.apple.com/?ll=${address.latitude},${address.longitude}&q=${encodeURIComponent(address.formattedAddress || 'Delivery Location')}`,
-            uber: `https://m.uber.com/ul/?action=setPickup&pickup=my_location&dropoff[latitude]=${address.latitude}&dropoff[longitude]=${address.longitude}&dropoff[nickname]=${encodeURIComponent(address.formattedAddress || 'Delivery')}`
+            appleMaps: `https://maps.apple.com/?ll=${address.latitude},${address.longitude}&q=${encodeURIComponent(address.formattedAddress || "Delivery Location")}`,
+            uber: `https://m.uber.com/ul/?action=setPickup&pickup=my_location&dropoff[latitude]=${address.latitude}&dropoff[longitude]=${address.longitude}&dropoff[nickname]=${encodeURIComponent(address.formattedAddress || "Delivery")}`,
           };
           // Also add a simple clickable link
           address.googleMapsLink = `https://www.google.com/maps?q=${address.latitude},${address.longitude}`;
-          
         } else if (address.placeId) {
           // Has Google Place ID - can use place-based link
           address.navigationLinks = {
             googleMaps: `https://www.google.com/maps/place/?q=place_id:${address.placeId}`,
-            googleMapsDirections: `https://www.google.com/maps/dir/?api=1&destination_place_id=${address.placeId}`
+            googleMapsDirections: `https://www.google.com/maps/dir/?api=1&destination_place_id=${address.placeId}`,
           };
           address.googleMapsLink = `https://www.google.com/maps/place/?q=place_id:${address.placeId}`;
-          
         } else if (address.formattedAddress) {
           // Fallback to text search
           const encodedAddress = encodeURIComponent(address.formattedAddress);
           address.navigationLinks = {
             googleMaps: `https://www.google.com/maps/search/?api=1&query=${encodedAddress}`,
-            googleMapsDirections: `https://www.google.com/maps/dir/?api=1&destination=${encodedAddress}`
+            googleMapsDirections: `https://www.google.com/maps/dir/?api=1&destination=${encodedAddress}`,
           };
           address.googleMapsLink = `https://www.google.com/maps/search/?api=1&query=${encodedAddress}`;
-          
         } else {
           // Last resort - construct from components
           const addressString = `${address.addressLine}, ${address.city}, ${address.state} ${address.zipCode}, ${address.country}`;
           const encodedAddress = encodeURIComponent(addressString);
           address.navigationLinks = {
             googleMaps: `https://www.google.com/maps/search/?api=1&query=${encodedAddress}`,
-            googleMapsDirections: `https://www.google.com/maps/dir/?api=1&destination=${encodedAddress}`
+            googleMapsDirections: `https://www.google.com/maps/dir/?api=1&destination=${encodedAddress}`,
           };
           address.googleMapsLink = `https://www.google.com/maps/search/?api=1&query=${encodedAddress}`;
         }
@@ -283,7 +309,7 @@ exports.getMyAssignedOrders = async (req, res) => {
         if (address.latitude && address.longitude) {
           address.coordinates = {
             lat: parseFloat(address.latitude),
-            lng: parseFloat(address.longitude)
+            lng: parseFloat(address.longitude),
           };
         }
 
@@ -298,17 +324,23 @@ exports.getMyAssignedOrders = async (req, res) => {
 
       return orderJson;
     });
+    const response = formatPagination(
+      {
+        count: orders.count, // ✅ FIXED
+        rows: ordersWithLinks,
+      },
+      paginationOptions.currentPage,
+      paginationOptions.limit,
+    );
 
-    res.json({ 
-      success: true, 
-      count: ordersWithLinks.length,
-      data: ordersWithLinks 
+    return res.json({
+      success: true,
+      ...response,
     });
-    
   } catch (err) {
-    res.status(500).json({ 
-      success: false, 
-      message: err.message 
+    res.status(500).json({
+      success: false,
+      message: err.message,
     });
   }
 };

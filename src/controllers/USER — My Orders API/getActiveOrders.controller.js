@@ -9,15 +9,8 @@
 // order: [["createdAt", "DESC"]],
 // });
 
-
 // res.json({ success: true, data: orders });
 // };
-
-
-
-
-
-
 
 // const {
 //   Order,
@@ -109,9 +102,6 @@
 //   }
 // };
 
-
-
-
 const {
   Order,
   OrderAddress,
@@ -122,10 +112,15 @@ const {
   VariantImage,
   VariantSize,
 } = require("../../models");
+const {
+  getPaginationOptions,
+  formatPagination,
+} = require("../../utils/paginate");
 
 exports.getActiveOrders = async (req, res) => {
   try {
-    const orders = await Order.findAll({
+    const paginationOptions = getPaginationOptions(req.query);
+    const orders = await Order.findAndCountAll({
       where: {
         userId: req.user.id,
         status: ["confirmed", "packed", "shipped", "out_for_delivery"],
@@ -140,11 +135,7 @@ exports.getActiveOrders = async (req, res) => {
           include: [
             {
               model: Product,
-               attributes: [
-                  "id",
-                  "title",
-                  "sku",       
-                ],
+              attributes: ["id", "title", "sku"],
               include: [{ model: ProductPrice, as: "price" }],
             },
             {
@@ -158,10 +149,12 @@ exports.getActiveOrders = async (req, res) => {
         },
       ],
       order: [["createdAt", "DESC"]],
+      distinct: true,
+      ...paginationOptions,
     });
 
     // Format response SAME as admin APIs
-    const formattedOrders = orders.map((order) => {
+    const formattedOrders = orders.rows.map((order) => {
       const items = order.OrderItems.map((item) => {
         const sellingPrice = item.Product?.price?.sellingPrice || 0;
 
@@ -218,11 +211,19 @@ exports.getActiveOrders = async (req, res) => {
         items,
       };
     });
+    /* 🔹 Format Pagination */
+    const response = formatPagination(
+      {
+        count: orders.count, 
+        rows: formattedOrders,
+      },
+      paginationOptions.currentPage,
+      paginationOptions.limit,
+    );
 
-    res.json({
+    return res.json({
       success: true,
-      total: formattedOrders.length,
-      data: formattedOrders,
+      ...response,
     });
   } catch (err) {
     res.status(500).json({

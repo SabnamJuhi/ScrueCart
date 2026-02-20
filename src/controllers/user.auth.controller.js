@@ -5,10 +5,15 @@ const { hashPassword, comparePassword } = require("../utils/password");
 const { generateToken, generateResetToken } = require("../utils/jwt");
 const { sendResetPasswordEmail } = require("../utils/email");
 const TokenBlacklist = require("../models/tokenBlacklist.model");
+const {
+  getPaginationOptions,
+  formatPagination,
+} = require("../utils/paginate");
 
 exports.register = async (req, res) => {
   try {
-    const { userName, email, mobileNumber, password, confirmPassword } = req.body;
+    const { userName, email, mobileNumber, password, confirmPassword } =
+      req.body;
 
     if (!userName || !email || !password || !confirmPassword) {
       return res.status(400).json({ message: "All fields are required" });
@@ -30,7 +35,7 @@ exports.register = async (req, res) => {
       userName,
       email,
       mobileNumber,
-      password: hashedPassword
+      password: hashedPassword,
     });
 
     const token = generateToken(user.id);
@@ -41,16 +46,13 @@ exports.register = async (req, res) => {
       user: {
         id: user.id,
         userName: user.userName,
-        email: user.email
-      }
+        email: user.email,
+      },
     });
-
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
 };
-
-
 
 exports.login = async (req, res) => {
   try {
@@ -76,15 +78,13 @@ exports.login = async (req, res) => {
       user: {
         id: user.id,
         userName: user.userName,
-        email: user.email
-      }
+        email: user.email,
+      },
     });
-
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
 };
-
 
 exports.forgotPassword = async (req, res) => {
   try {
@@ -94,7 +94,7 @@ exports.forgotPassword = async (req, res) => {
     if (!user) {
       return res.status(200).json({
         success: true,
-        message: "If email exists, reset link has been sent"
+        message: "If email exists, reset link has been sent",
       });
     }
 
@@ -106,15 +106,12 @@ exports.forgotPassword = async (req, res) => {
 
     res.json({
       success: true,
-      message: "Reset password link sent to your email"
+      message: "Reset password link sent to your email",
     });
-
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
 };
-
-
 
 exports.resetPassword = async (req, res) => {
   try {
@@ -136,43 +133,49 @@ exports.resetPassword = async (req, res) => {
 
     res.json({
       success: true,
-      message: "Password reset successful"
+      message: "Password reset successful",
     });
-
   } catch (error) {
     res.status(400).json({
-      message: "Token expired or invalid"
+      message: "Token expired or invalid",
     });
   }
 };
 
-
 /* ================= GET ALL USERS ================= */
 exports.getUsers = async (req, res) => {
   try {
-    const page = Number(req.query.page) || 1;
-    const limit = Number(req.query.limit) || 10;
-    const offset = (page - 1) * limit;
+    const paginationOptions = getPaginationOptions(req.query);
+    const { limit, offset, currentPage } = paginationOptions;
 
     const { count, rows } = await User.findAndCountAll({
-      attributes: { exclude: ["password"] }, // 🔐 never send password
+      attributes: { exclude: ["password"] },
       limit,
       offset,
       order: [["createdAt", "DESC"]],
     });
 
-    res.json({
+    const response = formatPagination(
+      {
+        count,
+        rows,
+      },
+      currentPage,
+      limit
+    );
+
+    return res.json({
       success: true,
-      totalUsers: count,
-      currentPage: page,
-      totalPages: Math.ceil(count / limit),
-      users: rows,
+      ...response,
     });
+
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    return res.status(500).json({
+      success: false,
+      message: error.message,
+    });
   }
 };
-
 
 /* ================= GET SINGLE USER ================= */
 exports.getUserById = async (req, res) => {
@@ -195,7 +198,6 @@ exports.getUserById = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
-
 
 /* ================= DELETE USER ================= */
 exports.deleteUser = async (req, res) => {
@@ -232,7 +234,6 @@ exports.deleteUser = async (req, res) => {
   }
 };
 
-
 /* ================= LOGOUT USER (Blacklist) ================= */
 exports.logout = async (req, res) => {
   try {
@@ -248,7 +249,6 @@ exports.logout = async (req, res) => {
       success: true,
       message: "Logged out successfully",
     });
-
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

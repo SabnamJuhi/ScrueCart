@@ -175,13 +175,18 @@ const {
   SubCategory,
   ProductCategory,
 } = require("../../models");
+const {
+  getPaginationOptions,
+  formatPagination,
+} = require("../../utils/paginate");
 
 exports.getAllProductsDetails = async (req, res) => {
   try {
     const userId = req.user?.id;
+     const paginationOptions = getPaginationOptions(req.query);
 
     /* ---------------- GET PRODUCTS ---------------- */
-    const products = await Product.findAll({
+    const products = await Product.findAndCountAll({
       attributes: [
         "id",
         "sku",
@@ -249,8 +254,9 @@ exports.getAllProductsDetails = async (req, res) => {
           ],
         },
       ],
-
-      order: [["createdAt", "DESC"]],
+        distinct: true, // 🔥 VERY IMPORTANT with includes
+        order: [["createdAt", "DESC"]],
+      ...paginationOptions,
     });
 
     /* ---------------- WISHLIST MAP ---------------- */
@@ -271,7 +277,7 @@ exports.getAllProductsDetails = async (req, res) => {
     }
 
     /* ---------------- ADD FLAGS ---------------- */
-    const finalProducts = products.map((p) => {
+    const finalProducts = products.rows.map((p) => {
       const productWishlisted = !!wishlistedMap[p.id];
 
       return {
@@ -280,12 +286,17 @@ exports.getAllProductsDetails = async (req, res) => {
         wishlistedVariants: wishlistedMap[p.id] || [],
       };
     });
+   
+    /* ---------------- FINAL PAGINATED RESPONSE ---------------- */
+    const response = formatPagination(
+      { count: products.count, rows: finalProducts }, // ✅ correct
+      paginationOptions.currentPage,
+      paginationOptions.limit
+    );
 
-    /* ---------------- RESPONSE ---------------- */
     return res.json({
       success: true,
-      count: finalProducts.length,
-      data: finalProducts,
+      ...response,
     });
   } catch (error) {
     console.error("GET ALL PRODUCTS ERROR:", error);

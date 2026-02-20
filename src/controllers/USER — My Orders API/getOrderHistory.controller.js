@@ -140,10 +140,15 @@ const {
   VariantImage,
   VariantSize,
 } = require("../../models");
+const {
+  getPaginationOptions,
+  formatPagination,
+} = require("../../utils/paginate");
 
 exports.getOrderHistory = async (req, res) => {
   try {
-    const orders = await Order.findAll({
+    const paginationOptions = getPaginationOptions(req.query);
+    const orders = await Order.findAndCountAll({
       where: {
         userId: req.user.id,
         status: ["delivered", "completed", "cancelled", "refunded"],
@@ -178,9 +183,11 @@ exports.getOrderHistory = async (req, res) => {
         },
       ],
       order: [["createdAt", "DESC"]],
+       distinct: true,
+      ...paginationOptions,
     });
 
-    const formattedOrders = orders.map((order) => {
+    const formattedOrders = orders.rows.map((order) => {
       const items = order.OrderItems.map((item) => {
         const price = item.Product?.price?.sellingPrice || 0;
 
@@ -245,11 +252,18 @@ exports.getOrderHistory = async (req, res) => {
         items,
       };
     });
+ const response = formatPagination(
+      {
+        count: orders.count,
+        rows: formattedOrders,
+      },
+      paginationOptions.currentPage,
+      paginationOptions.limit
+    );
 
     return res.json({
       success: true,
-      total: formattedOrders.length,
-      data: formattedOrders,
+      ...response,
     });
   } catch (err) {
     return res.status(500).json({

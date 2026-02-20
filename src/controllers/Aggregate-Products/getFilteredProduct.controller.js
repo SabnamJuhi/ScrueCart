@@ -9,6 +9,10 @@ const VariantImage = require("../../models/productVariants/variantImage.model");
 const Category = require("../../models/category/category.model");
 const SubCategory = require("../../models/category/subcategory.model");
 const Wishlist = require("../../models/wishlist.model");
+const {
+  getPaginationOptions,
+  formatPagination,
+} = require("../../utils/paginate");
 
 exports.getFilteredProducts = async (req, res) => {
   try {
@@ -25,6 +29,8 @@ exports.getFilteredProducts = async (req, res) => {
       specs,
     } = req.query;
     const userId = req.user?.id;
+    const paginationOptions = getPaginationOptions(req.query);
+    const { limit, offset, currentPage } = paginationOptions;
     const toArray = (val) => (val ? val.split(",").map((v) => v.trim()) : []);
 
     /* ---------- product where ---------- */
@@ -78,15 +84,15 @@ exports.getFilteredProducts = async (req, res) => {
     /* ---------- MAIN QUERY ---------- */
     const products = await Product.findAll({
       where: productWhere,
-       attributes: [
-          "id",
-          "sku",          
-          "title",
-          "brandName",
-          "badge",
-          "isActive",
-          "createdAt",
-        ],
+      attributes: [
+        "id",
+        "sku",
+        "title",
+        "brandName",
+        "badge",
+        "isActive",
+        "createdAt",
+      ],
       include: [
         /* CATEGORY */
         {
@@ -172,38 +178,44 @@ exports.getFilteredProducts = async (req, res) => {
         ),
       );
     }
-   let wishlistedMap = {};
+    let wishlistedMap = {};
 
-if (userId) {
-  const wishlist = await Wishlist.findAll({
-    where: { userId },
-    attributes: ["productId", "variantId"],
-  });
+    if (userId) {
+      const wishlist = await Wishlist.findAll({
+        where: { userId },
+        attributes: ["productId", "variantId"],
+      });
 
-  wishlist.forEach((w) => {
-    if (!wishlistedMap[w.productId]) {
-      wishlistedMap[w.productId] = [];
+      wishlist.forEach((w) => {
+        if (!wishlistedMap[w.productId]) {
+          wishlistedMap[w.productId] = [];
+        }
+        wishlistedMap[w.productId].push(w.variantId);
+      });
     }
-    wishlistedMap[w.productId].push(w.variantId);
-  });
-}
 
+    const finalProducts = filteredProducts.map((p) => {
+      const productWishlisted = !!wishlistedMap[p.id];
+            return {
+            ...p.toJSON(),
+            isWishlisted: productWishlisted,
+            wishlistedVariants: wishlistedMap[p.id] || [],
+      };
+    });
+     /* ---------- MANUAL PAGINATION ---------- */
+    const totalCount = finalProducts.length;
 
-  const finalProducts = filteredProducts.map((p) => {
-  const productWishlisted = !!wishlistedMap[p.id];
+    const paginatedRows = finalProducts.slice(offset, offset + limit);
 
-  return {
-    ...p.toJSON(),
-    isWishlisted: productWishlisted,        
-    wishlistedVariants: wishlistedMap[p.id] || [], 
-  };
-});
-
+    const response = formatPagination(
+      { count: totalCount, rows: paginatedRows },
+      currentPage,
+      limit
+    );
 
     return res.json({
       success: true,
-      count: finalProducts.length,
-      data: finalProducts,
+      ...response,
     });
   } catch (error) {
     console.error("FILTER PRODUCT ERROR:", error);

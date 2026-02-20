@@ -7,6 +7,10 @@ const {
   VariantSize,
   ProductSpec,
 } = require("../../models");
+const {
+  getPaginationOptions,
+  formatPagination,
+} = require("../../utils/paginate");
 
 exports.addToWishlist = async (req, res) => {
   try {
@@ -44,8 +48,8 @@ exports.addToWishlist = async (req, res) => {
 exports.getWishlist = async (req, res) => {
   try {
     const userId = req.user.id;
-
-    const wishlistItems = await Wishlist.findAll({
+     const paginationOptions = getPaginationOptions(req.query);
+    const wishlistItems = await Wishlist.findAndCountAll({
       where: { userId },
 
       include: [
@@ -87,12 +91,13 @@ exports.getWishlist = async (req, res) => {
           ],
         },
       ],
-
       order: [["createdAt", "DESC"]],
+       distinct: true, 
+      ...paginationOptions,
     });
 
     /* ---------- FORMAT CLEAN RESPONSE ---------- */
-    const formattedWishlist = wishlistItems.map((item) => {
+    const formattedWishlist = wishlistItems.rows.map((item) => {
       const product = item.Product || {};
       const variant = item.ProductVariant || {};
       const price = product.price || {};
@@ -147,11 +152,19 @@ exports.getWishlist = async (req, res) => {
         },
       };
     });
+ /* ---------- FORMAT PAGINATION ---------- */
+    const response = formatPagination(
+      {
+        count: wishlistItems.count,
+        rows: formattedWishlist,
+      },
+      paginationOptions.currentPage,
+      paginationOptions.limit
+    );
 
     return res.json({
       success: true,
-      total: formattedWishlist.length,
-      data: formattedWishlist,
+      ...response,
     });
   } catch (err) {
     return res.status(500).json({

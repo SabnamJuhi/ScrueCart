@@ -35,10 +35,6 @@
 //   }
 // };
 
-
-
-
-
 // const {
 //   Order,
 //   OrderAddress,
@@ -139,10 +135,6 @@
 //   }
 // };
 
-
-
-
-
 const {
   Order,
   OrderAddress,
@@ -154,10 +146,16 @@ const {
   VariantImage,
   VariantSize,
 } = require("../../models");
+const {
+  getPaginationOptions,
+  formatPagination,
+} = require("../../utils/paginate");
 
 exports.getAdminActiveOrders = async (req, res) => {
+  // 🔹 Get pagination options from query
+  const paginationOptions = getPaginationOptions(req.query);
   try {
-    const orders = await Order.findAll({
+    const orders = await Order.findAndCountAll({
       where: {
         status: ["confirmed", "packed", "shipped", "out_for_delivery"],
       },
@@ -175,11 +173,7 @@ exports.getAdminActiveOrders = async (req, res) => {
           include: [
             {
               model: Product,
-               attributes: [
-                  "id",
-                  "title",
-                  "sku",       
-                ],
+              attributes: ["id", "title", "sku"],
               include: [{ model: ProductPrice, as: "price" }],
             },
             {
@@ -192,13 +186,15 @@ exports.getAdminActiveOrders = async (req, res) => {
           ],
         },
       ],
-      order: [["createdAt", "DESC"]],
+      // order: [["createdAt", "DESC"]],
+      distinct: true, // 🔥 VERY IMPORTANT (prevents wrong count with include)
+      ...paginationOptions,
     });
 
     /**
      * 🔹 Transform response
      */
-    const formattedOrders = orders.map((order) => {
+    const formattedOrders = orders.rows.map((order) => {
       const items = order.OrderItems.map((item) => {
         const sellingPrice = item.Product?.price?.sellingPrice || 0;
 
@@ -250,32 +246,25 @@ exports.getAdminActiveOrders = async (req, res) => {
           updatedAt: order.updatedAt,
           userId: order.userId,
         },
-
-        /**
-         * 👤 CUSTOMER INFO
-         */
         customer: {
           id: order.User?.id,
           name: order.User?.userName,
           email: order.User?.email,
         },
-
-        /**
-         * 📍 ADDRESS SNAPSHOT
-         */
         address: order.address,
-
-        /**
-         * 🛒 ITEMS (cart-like structure)
-         */
         items,
       };
     });
+    // 🔹 Format final response with pagination metadata
+    const response = formatPagination(
+      { count: orders.count, rows: formattedOrders },
+      paginationOptions.currentPage,
+      paginationOptions.limit,
+    );
 
     res.json({
       success: true,
-      total: formattedOrders.length,
-      data: formattedOrders,
+      ...response,
     });
   } catch (err) {
     res.status(500).json({

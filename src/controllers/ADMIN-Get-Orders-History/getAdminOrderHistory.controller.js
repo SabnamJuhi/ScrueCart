@@ -154,10 +154,15 @@ const {
   VariantImage,
   VariantSize,
 } = require("../../models");
+const {
+  getPaginationOptions,
+  formatPagination,
+} = require("../../utils/paginate");
 
 exports.getAdminOrderHistory = async (req, res) => {
   try {
-    const orders = await Order.findAll({
+    const paginationOptions = getPaginationOptions(req.query);
+    const orders = await Order.findAndCountAll({
       where: {
         status: ["delivered", "completed", "cancelled", "refunded"],
       },
@@ -192,13 +197,15 @@ exports.getAdminOrderHistory = async (req, res) => {
           ],
         },
       ],
-      order: [["createdAt", "DESC"]],
+      // order: [["createdAt", "DESC"]],
+        distinct: true, // 🔥 VERY IMPORTANT with includes
+      ...paginationOptions,
     });
 
     /**
      * 🔹 Transform response (same structure as Active Orders)
      */
-    const formattedOrders = orders.map((order) => {
+    const formattedOrders = orders.rows.map((order) => {
       const items = order.OrderItems.map((item) => {
         const sellingPrice = item.Product?.price?.sellingPrice || 0;
 
@@ -250,32 +257,23 @@ exports.getAdminOrderHistory = async (req, res) => {
           updatedAt: order.updatedAt,
           userId: order.userId,
         },
-
-        /**
-         * 👤 CUSTOMER INFO
-         */
         customer: {
           id: order.User?.id,
           name: order.User?.userName,
           email: order.User?.email,
         },
-
-        /**
-         * 📍 ADDRESS SNAPSHOT
-         */
         address: order.address,
-
-        /**
-         * 🛒 ITEMS
-         */
         items,
       };
     });
-
+    const response = formatPagination(
+      { count: orders.count, rows: formattedOrders },
+      paginationOptions.currentPage,
+      paginationOptions.limit
+    );
     res.json({
-      success: true,
-      total: formattedOrders.length,
-      data: formattedOrders,
+       success: true,
+      ...response,
     });
   } catch (err) {
     res.status(500).json({

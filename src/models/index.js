@@ -34,6 +34,8 @@ const UserAddress = require("./orders/userAddress.model")
 //wishlist
 const Wishlist = require("./wishlist.model");
 const DeliveryBoy = require("./orders/deliveryBoy.model")
+//featuured Category
+const FeaturedCategory = require("./featured_categories/featured_categories.model")
 
 
 
@@ -160,6 +162,8 @@ Wishlist.belongsTo(Product, { foreignKey: "productId" });
 ProductVariant.hasMany(Wishlist, { foreignKey: "variantId" });
 Wishlist.belongsTo(ProductVariant, { foreignKey: "variantId" });
 
+Category.hasMany(FeaturedCategory, {foreignKey: "categoryId", as: "featuredEntries"});
+FeaturedCategory.belongsTo(Category, {foreignKey: "categoryId", as: "category"});
 
 module.exports = {
   sequelize,
@@ -183,5 +187,6 @@ module.exports = {
   Order, 
   OrderItem, 
   OrderAddress,
-  Wishlist
+  Wishlist,
+  FeaturedCategory
 }

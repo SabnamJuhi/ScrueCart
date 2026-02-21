@@ -47,6 +47,8 @@ app.use("/api/banners", require("./routes/banner/banner.routes"));
 
 app.use("/api/checkout", require("./routes/checkout/checkout.routes"));
 
+app.use("/api/featured-categories", require("./routes/featued_Category/feature_category.route"));
+
 
 app.use((err, req, res, next) => {
   console.error("GLOBAL ERROR:", err);

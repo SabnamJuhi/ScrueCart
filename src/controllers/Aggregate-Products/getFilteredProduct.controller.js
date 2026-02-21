@@ -36,18 +36,32 @@ exports.getFilteredProducts = async (req, res) => {
     /* ---------- product where ---------- */
     const productWhere = { isActive: true };
 
-    if (categoryId)
-      productWhere.categoryId = { [Op.in]: toArray(categoryId).map(Number) };
+    /* ---------- CATEGORY + SUBCATEGORY + PRODUCTCATEGORY (FIXED LOGIC) ---------- */
 
-    if (subCategoryId)
-      productWhere.subCategoryId = {
-        [Op.in]: toArray(subCategoryId).map(Number),
-      };
+const categories = toArray(categoryId).map(Number);
+const subCategories = toArray(subCategoryId).map(Number);
+const productCategories = toArray(productCategoryId).map(Number);
 
-    if (productCategoryId)
-      productWhere.productCategoryId = {
-        [Op.in]: toArray(productCategoryId).map(Number),
-      };
+if (categories.length) {
+  const orConditions = [];
+
+  categories.forEach((catId) => {
+    const condition = { categoryId: catId };
+
+    // Apply subCategory & productCategory filters ONLY if they exist
+    if (subCategories.length) {
+      condition.subCategoryId = { [Op.in]: subCategories };
+    }
+
+    if (productCategories.length) {
+      condition.productCategoryId = { [Op.in]: productCategories };
+    }
+
+    orConditions.push(condition);
+  });
+
+  productWhere[Op.or] = orConditions;
+}
 
     if (brands) productWhere.brandName = { [Op.in]: toArray(brands) };
 

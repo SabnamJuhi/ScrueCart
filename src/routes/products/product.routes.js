@@ -16,7 +16,7 @@ const {
 router.post("/", adminAuth, createProduct)
 router.get("/", getAllProducts)
 router.get("/:id", getProductById)
-router.get("/product-category/:productCategoryId", getProductsByProductCategory)
+router.get("/productCategory/:productCategoryId", getProductsByProductCategory)
 router.get("/subcategory/:subCategoryId", getProductsBySubCategory)
 router.get("/category/:categoryId", getProductsByCategory)
 router.put("/:id", adminAuth, updateProduct)

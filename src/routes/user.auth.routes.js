@@ -48,16 +48,16 @@ router.post("/register", register);
 router.post("/login", login);
 
 router.delete("/users/:id", protected, deleteUser);
-router.delete("/admin/users/:id", protected, adminAuth, deleteUser);
+// router.delete("/admin/users/:id", protected, adminAuth, deleteUser);
 router.post("/logout", protected, logout);
 router.get("/users", adminAuth, getUsers);
 router.get("/users/:id", protected, getUserById);
 
 // Forgot-password
-router.post("/forgot-password", forgotPassword);
+router.post("/forgotPassword", forgotPassword);
 
 // Resest-Password
-router.post("/reset-password", resetPassword);
+router.post("/resetPassword", resetPassword);
 
 // Google auth
 router.get(

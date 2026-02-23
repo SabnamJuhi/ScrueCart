@@ -2,31 +2,31 @@ const express = require("express");
 const router = express.Router();
 const orderController = require("../../controllers/order/order.controller");
 const { protected } = require("../../middleware/user.logout.middleware");
-const {updateOrderStatus, markOutForDelivery} = require("../../controllers/ADMIN-Update Order Status API/updateOrderStatus.controller");
-const {sendDeliveryOtp} = require("../../controllers/ADMIN-Update Order Status API/sendDeliveryOtp.controller");
+const {updateOrderStatus, markOutForDelivery} = require("../../controllers/adminUpdateOrderStatusApi/updateOrderStatus.controller");
+const {sendDeliveryOtp} = require("../../controllers/adminUpdateOrderStatusApi/sendDeliveryOtp.controller");
 // const { verifyDeliveryOtp} = require("../../controllers/ADMIN-Update Order Status API/verifyDeliveryOtp.controller");
-const {getActiveOrders} = require("../../controllers/USER — My Orders API/getActiveOrders.controller");
-const {getCompletedOrders} = require("../../controllers/USER — My Orders API/getCompletedOrders.controller");
-const {cancelOrder} = require("../../controllers/USER — My Orders API/cancelOrder.controller");
-const {returnOrder} = require("../../controllers/USER — My Orders API/returnOrder.controller");
-const {completeRefund} = require("../../controllers/ADMIN-Update Order Status API/completeRefund.controller");
-const {markDeliveredCOD} = require("../../controllers/COD-DeliveryPaymentCompletion APIs/markDeliveredCOD.controller");
-const {collectCODPayment} = require("../../controllers/COD-DeliveryPaymentCompletion APIs/collectCODPayment.controller");
-const {getAdminActiveOrders} = require("../../controllers/ADMIN-Get-Orders-History/getAdminActiveOrders.controller");
-const {getAdminOrderHistory} = require("../../controllers/ADMIN-Get-Orders-History/getAdminOrderHistory.controller");
-const { getOrderHistory} = require("../../controllers/USER — My Orders API/getOrderHistory.controller");
-const {addAddress,getUserAddresses,updateAddress,deleteAddress,setDefaultAddress,getAddressById} = require("../../controllers/order/Address.CRUD.controller");
+const {getActiveOrders} = require("../../controllers/userMyOrdersApi/getActiveOrders.controller");
+const {getCompletedOrders} = require("../../controllers/userMyOrdersApi/getCompletedOrders.controller");
+const {cancelOrder} = require("../../controllers/userMyOrdersApi/cancelOrder.controller");
+const {returnOrder} = require("../../controllers/userMyOrdersApi/returnOrder.controller");
+const {completeRefund} = require("../../controllers/adminUpdateOrderStatusApi/completeRefund.controller");
+const {markDeliveredCOD} = require("../../controllers/codDeliveryPaymentCompletionApis/markDeliveredCOD.controller");
+const {collectCODPayment} = require("../../controllers/codDeliveryPaymentCompletionApis/collectCODPayment.controller");
+const {getAdminActiveOrders} = require("../../controllers/adminGetOrdersHistory/getAdminActiveOrders.controller");
+const {getAdminOrderHistory} = require("../../controllers/adminGetOrdersHistory/getAdminOrderHistory.controller");
+const { getOrderHistory} = require("../../controllers/userMyOrdersApi/getOrderHistory.controller");
+const {addAddress,getUserAddresses,updateAddress,deleteAddress,setDefaultAddress,getAddressById} = require("../../controllers/order/address.CRUD.controller");
 const adminAuthMiddleware = require("../../middleware/admin.auth.middleware");
 // const {createDeliveryBoy, updateDeliveryBoy, deleteDeliveryBoy, } = require("../../controllers/order/deliveryBoy.CRUD.controller");
 // const {confirmCodPayment} = require("../../controllers/ADMIN-Update Order Status API/confirmCodPayment.controller");
-const {getMyAssignedOrders, loginDeliveryBoy, getAllDeliveryBoys, registerDeliveryBoy, updateDeliveryBoy, deleteDeliveryBoy, verifyDeliveryOtp, confirmCodPayment} = require("../../controllers/delivery-Boy/deliveryBoy.controller");
-const {deliveryBoyAuth} = require("../../middleware/DeliveryBoy.Auth.middleware");
+const {getMyAssignedOrders, loginDeliveryBoy, getAllDeliveryBoys, registerDeliveryBoy, updateDeliveryBoy, deleteDeliveryBoy, verifyDeliveryOtp, confirmCodPayment} = require("../../controllers/deliveryBoy/deliveryBoy.controller");
+const {deliveryBoyAuth} = require("../../middleware/deliveryBoy.Auth.middleware");
 const { getAddressWithGoogleLink } = require("../../controllers/order/google.Address.controller");
 
 
 // Create Order (Requires Login)
 router.post("/place", protected, orderController.placeOrder);
-router.post("/verify-payment", protected, orderController.verifyRazorpayPayment,);
+router.post("/verifyPayment", protected, orderController.verifyRazorpayPayment,);
 
 // Payment Webhook (Public, called by Razorpay/Stripe)
 // router.post('/webhook/payment', orderController.handlePaymentWebhook);
@@ -34,25 +34,21 @@ router.post("/verify-payment", protected, orderController.verifyRazorpayPayment,
 // router.post("/payment/icici/callback", orderController.iciciReturn);
 // router.post("/payment/icici/test", orderController.iciciTestCallback);
 
-// router.post("/delivery-boy", createDeliveryBoy);
-// router.get("/delivery-boy", getDeliveryBoys);
-// router.put("/delivery-boy/:id", updateDeliveryBoy);
-// router.delete("/delivery-boy/:id", deleteDeliveryBoy);
 
 // --- Delivery Boy Auth ---
 router.post("/register", adminAuthMiddleware, registerDeliveryBoy);
 router.post("/login", loginDeliveryBoy);
-router.get("/delivery-boys", adminAuthMiddleware, getAllDeliveryBoys);
-router.patch("/delivery-boys/:id", adminAuthMiddleware, updateDeliveryBoy);
-router.delete("/delivery-boys/:id",adminAuthMiddleware, deleteDeliveryBoy);
+router.get("/deliveryBoys", adminAuthMiddleware, getAllDeliveryBoys);
+router.patch("/deliveryBoys/:id", adminAuthMiddleware, updateDeliveryBoy);
+router.delete("/deliveryBoys/:id",adminAuthMiddleware, deleteDeliveryBoy);
 router.patch("/:orderNumber/shipped", adminAuthMiddleware, updateOrderStatus);
-router.patch("/:orderNumber/out-for-delivery", adminAuthMiddleware, markOutForDelivery);
+router.patch("/:orderNumber/outForDelivery", adminAuthMiddleware, markOutForDelivery);
 // --- Orders assigned to delivery boy ---
-router.get("/my-orders", deliveryBoyAuth, getMyAssignedOrders);
+router.get("/myOrders", deliveryBoyAuth, getMyAssignedOrders);
 // --- OTP Verification ---
-router.post("/verify-otp", deliveryBoyAuth, verifyDeliveryOtp);
+router.post("/verifyOtp", deliveryBoyAuth, verifyDeliveryOtp);
 // --- COD payment confirmation ---
-router.post("/confirm-cod-payment", deliveryBoyAuth, confirmCodPayment);
+router.post("/confirmCodPayment", deliveryBoyAuth, confirmCodPayment);
 
 //ADMIN — Update Order Status API
 // router.patch("/admin/:orderNumber/status", updateOrderStatus);
@@ -73,13 +69,13 @@ router.post("/:orderNumber/return", returnOrder);
 router.post("/admin/:orderNumber/refund", completeRefund);
 
 // COD flow
-router.patch("/admin/:orderNumber/mark-delivered", markDeliveredCOD);
-router.patch("/admin/:orderNumber/collect-cod", collectCODPayment);
+router.patch("/admin/:orderNumber/markDelivered", markDeliveredCOD);
+router.patch("/admin/:orderNumber/collectCod", collectCODPayment);
 
 //Admin-get-Orders
 // ADMIN — Orders viewing
-router.get("/admin/active", getAdminActiveOrders);
-router.get("/admin/history", getAdminOrderHistory);
+router.get("/admin/active", adminAuthMiddleware, getAdminActiveOrders);
+router.get("/admin/history", adminAuthMiddleware, getAdminOrderHistory);
 
 //Adress APIS
 router.post("/user/address", protected, addAddress);
@@ -92,11 +88,11 @@ router.patch("/user/address/default/:id", protected, setDefaultAddress);
 
 //Google address APIS
 // Add new address
-router.post("/gLOcation", protected, addAddress);
+router.post("/gLocation", protected, addAddress);
 // Update full address OR add google location later
-router.put("/gLOcation/:id", protected, updateAddress);
+router.put("/gLocation/:id", protected, updateAddress);
 // Get single adress with Google Maps link
-router.get("/gLOcation/:id/google", protected, getAddressWithGoogleLink);
+router.get("/gLocation/:id/google", protected, getAddressWithGoogleLink);
 
 
 // router.post(

@@ -35,7 +35,7 @@ const UserAddress = require("./orders/userAddress.model")
 const Wishlist = require("./wishlist.model");
 const DeliveryBoy = require("./orders/deliveryBoy.model")
 //featuured Category
-const FeaturedCategory = require("./featured_categories/featured_categories.model")
+const FeaturedCategory = require("./featuredCategories/featured_categories.model")
 
 
 

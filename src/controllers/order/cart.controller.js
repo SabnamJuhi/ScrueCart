@@ -7,6 +7,111 @@ const {
   VariantSize,
 } = require("../../models");
 
+// exports.getCart = async (req, res) => {
+//   try {
+//     const userId = req.user.id;
+
+//     const cartItems = await CartItem.findAll({
+//       where: { userId },
+//       include: [
+//         {
+//           model: Product,
+//           as: "product",
+//           include: [{ model: ProductPrice, as: "price" }],
+//         },
+//         {
+//           model: ProductVariant,
+//           as: "variant",
+//           include: [{ model: VariantImage, as: "images", limit: 1 }],
+//         },
+//         {
+//           model: VariantSize,
+//           as: "variantSize",
+//         },
+//       ],
+//       order: [["createdAt", "DESC"]],
+//     });
+
+//     let subTotal = 0;
+//     let totalQuantity = 0;
+
+//     const items = cartItems.map((item) => {
+//       const sellingPrice = item.product?.price?.sellingPrice || 0;
+
+//       const currentStock = item.variantSize?.stock || 0;
+
+//       const isAvailable = currentStock > 0;
+
+//       const status = currentStock > 0 ? "In Stock" : "Out of Stock";
+
+//       const itemTotal = sellingPrice * item.quantity;
+
+//       if (isAvailable) {
+//         subTotal += itemTotal;
+//         totalQuantity += item.quantity;
+//       }
+
+//       return {
+//         cartId: item.id,
+//         productId: item.productId,
+//         variantId: item.variantId,
+//         sizeId: item.sizeId,
+
+//         title: item.product?.title || "Unknown Product",
+//         image: item.variant?.images?.[0]?.imageUrl || null,
+
+//         variant: {
+//           color: item.variant?.colorName,
+//           size: item.variantSize?.size,
+//           stock: item.variantSize?.stock || 0,
+//           status: item.variant?.stockStatus,
+//           isAvailable,
+//         },
+
+//         price: sellingPrice,
+//         quantity: item.quantity,
+//         total: isAvailable ? itemTotal : 0,
+//       };
+//     });
+
+//     // const taxAmount = Math.round(subTotal * 0.12);
+//     let taxAmount = 0;
+
+//     cartItems.forEach((item) => {
+//       const sellingPrice = item.product?.price?.sellingPrice || 0;
+//       const qty = item.quantity || 0;
+//       const gstRate = Number(item.product?.gstRate || 0);
+
+//       const itemSubtotal = sellingPrice * qty;
+//       const itemTax = Math.round((itemSubtotal * gstRate) / 100);
+
+//       taxAmount += itemTax;
+//     });
+
+//     const shippingFee = subTotal > 5000 || subTotal === 0 ? 0 : 150;
+
+//     res.json({
+//       success: true,
+//       data: items,
+//       summary: {
+//         itemsCount: items.length,
+//         totalQuantity,
+//         subTotal,
+//         // tax: { rate: "12%", amount: taxAmount },
+//         tax: { amount: taxAmount }, // dynamic GST
+//         grandTotal: subTotal + taxAmount + shippingFee,
+//         shippingFee,
+//         currency: "INR",
+//         canCheckout: items.every((i) => i.variant.isAvailable),
+//       },
+//     });
+//   } catch (error) {
+//     res.status(500).json({ success: false, message: error.message });
+//   }
+// };
+
+
+
 exports.getCart = async (req, res) => {
   try {
     const userId = req.user.id;
@@ -34,18 +139,30 @@ exports.getCart = async (req, res) => {
 
     let subTotal = 0;
     let totalQuantity = 0;
+    let taxAmount = 0;
 
     const items = cartItems.map((item) => {
       const sellingPrice = item.product?.price?.sellingPrice || 0;
+      const gstRate = Number(item.product?.gstRate || 0);
 
-      const isAvailable =
-        item.variant?.stockStatus === "In Stock" && item.variantSize?.stock > 0;
+      const currentStock = item.variantSize?.stock || 0;
 
-      const itemTotal = sellingPrice * item.quantity;
+      // ✅ Correct stock logic
+      const isAvailable = currentStock > 0;
+      const status = isAvailable ? "In Stock" : "Out of Stock";
+
+      // ✅ Prevent quantity > stock
+      const validQuantity = isAvailable
+        ? Math.min(item.quantity, currentStock)
+        : 0;
+
+      const itemSubtotal = sellingPrice * validQuantity;
+      const itemTax = Math.round((itemSubtotal * gstRate) / 100);
 
       if (isAvailable) {
-        subTotal += itemTotal;
-        totalQuantity += item.quantity;
+        subTotal += itemSubtotal;
+        totalQuantity += validQuantity;
+        taxAmount += itemTax;
       }
 
       return {
@@ -60,31 +177,18 @@ exports.getCart = async (req, res) => {
         variant: {
           color: item.variant?.colorName,
           size: item.variantSize?.size,
-          stock: item.variantSize?.stock || 0,
-          status: item.variant?.stockStatus,
+          stock: currentStock,
+          status, // ✅ dynamic
           isAvailable,
         },
 
         price: sellingPrice,
-        quantity: item.quantity,
-        total: isAvailable ? itemTotal : 0,
+        quantity: validQuantity, // ✅ adjusted quantity
+        total: isAvailable ? itemSubtotal : 0,
       };
     });
 
-    // const taxAmount = Math.round(subTotal * 0.12);
-    let taxAmount = 0;
-
-    cartItems.forEach((item) => {
-      const sellingPrice = item.product?.price?.sellingPrice || 0;
-      const qty = item.quantity || 0;
-      const gstRate = Number(item.product?.gstRate || 0);
-
-      const itemSubtotal = sellingPrice * qty;
-      const itemTax = Math.round((itemSubtotal * gstRate) / 100);
-
-      taxAmount += itemTax;
-    });
-
+    // ✅ Shipping logic
     const shippingFee = subTotal > 5000 || subTotal === 0 ? 0 : 150;
 
     res.json({
@@ -94,18 +198,27 @@ exports.getCart = async (req, res) => {
         itemsCount: items.length,
         totalQuantity,
         subTotal,
-        // tax: { rate: "12%", amount: taxAmount },
-        tax: { amount: taxAmount }, // dynamic GST
+        tax: { amount: taxAmount },
         grandTotal: subTotal + taxAmount + shippingFee,
         shippingFee,
         currency: "INR",
-        canCheckout: items.every((i) => i.variant.isAvailable),
+
+        // ✅ Checkout allowed only if:
+        // - all items available
+        // - quantity > 0
+        canCheckout:
+          items.length > 0 &&
+          items.every((i) => i.variant.isAvailable && i.quantity > 0),
       },
     });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
   }
 };
+
 
 exports.addToCart = async (req, res) => {
   try {

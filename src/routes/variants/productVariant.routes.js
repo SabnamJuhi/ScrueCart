@@ -9,7 +9,7 @@ const {
 const upload = require('../../middleware/upload');
 
 
-router.post('/variants/upload-images', upload.array('images', 5), uploadVariantImages);
+router.post('/variants/uploadImages', upload.array('images', 5), uploadVariantImages);
 router.post("/", upsertVariants)
 router.get("/:productId", getVariantsByProduct)
 router.delete("/product/:productId", deleteVariantsbyProduct)

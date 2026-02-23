@@ -10,6 +10,8 @@ router.post("/", protected, reviewController.createReview)
 router.get("/:productId", reviewController.getReviewsByProduct)
 router.put("/:id", protected, reviewController.updateReview)
 router.delete("/:id", protected, reviewController.deleteReview)
-router.post("/:id/react", protected, reactToReview)
+// router.post("/:id/react", protected, reactToReview)
+router.post("/react/:productId", protected, reactToReview)
+
 
 module.exports = router

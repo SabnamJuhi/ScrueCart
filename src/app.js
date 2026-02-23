@@ -39,7 +39,7 @@ app.use("/api/order", require("./routes/order/order.routes"))
 // app.use('/uploads', express.static(path.join(__dirname, 'public/uploads')));
 
 app.use("/api/wishlist", require("./routes/wishlist/wishlist.routes"))
-app.use("/api/bulkorder", require("./routes/Bulk_Upload_route/bulkUpload.route"))
+app.use("/api/bulkorder", require("./routes/BulkUploadRoute/bulkUpload.route"))
 
 app.use("/api/contact", require("./routes/contact/contact.routes"));
 
@@ -47,7 +47,11 @@ app.use("/api/banners", require("./routes/banner/banner.routes"));
 
 app.use("/api/checkout", require("./routes/checkout/checkout.routes"));
 
-app.use("/api/featured-categories", require("./routes/featued_Category/feature_category.route"));
+app.use("/api/featuredCategories", require("./routes/featuedCategory/featureCategory.route"));
+
+app.use("/api/dashboard", require("./routes/adminDashboardStates/adminDashboardStats.routes"))
+
+app.use("/api/search", require("./routes/searchServices/searchServices.routes"))
 
 
 app.use((err, req, res, next) => {

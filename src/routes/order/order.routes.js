@@ -21,7 +21,7 @@ const adminAuthMiddleware = require("../../middleware/admin.auth.middleware");
 // const {confirmCodPayment} = require("../../controllers/ADMIN-Update Order Status API/confirmCodPayment.controller");
 const {getMyAssignedOrders, loginDeliveryBoy, getAllDeliveryBoys, registerDeliveryBoy, updateDeliveryBoy, deleteDeliveryBoy, verifyDeliveryOtp, confirmCodPayment} = require("../../controllers/deliveryBoy/deliveryBoy.controller");
 const {deliveryBoyAuth} = require("../../middleware/deliveryBoy.Auth.middleware");
-const { getAddressWithGoogleLink } = require("../../controllers/order/google.Address.controller");
+const { getAddressWithGoogleLink } = require("../../controllers/order/google.address.controller");
 
 
 // Create Order (Requires Login)

@@ -1,71 +1,73 @@
-// /**
-//  * PRICE CALCULATION SERVICE
-//  * All price-related business logic lives here
-//  */
+const ProductPrice = require("../models/products/price.model");
 
-// /**
-//  * Calculate discount percentage from MRP and selling price
-//  * @param {number} mrp
-//  * @param {number} sellingPrice
-//  * @returns {number} discountPercentage
-//  */
-// exports.calculateDiscountPercentage = (mrp, sellingPrice) => {
-//   if (!mrp || !sellingPrice) return 0
-//   if (mrp <= 0 || sellingPrice < 0) return 0
+/**
+ * Create or update variant price
+ */
+exports.upsert = async (productId, variantId, price, transaction) => {
 
-//   const discount = ((mrp - sellingPrice) / mrp) * 100
-//   return Math.round(discount)
-// }
+  const calculatedPrice = exports.calculatePrice(price);
 
-// /**
-//  * Validate price values
-//  * @param {number} mrp
-//  * @param {number} sellingPrice
-//  */
-// exports.validatePrice = (mrp, sellingPrice) => {
-//   if (sellingPrice > mrp) {
-//     throw new Error("Selling price cannot be greater than MRP")
-//   }
-// }
-
-// /**
-//  * Generate price object (useful for seeding / bulk create)
-//  * @param {number} baseMrp
-//  * @param {number} baseSelling
-//  * @param {number} index
-//  */
-// exports.generatePriceByIndex = (baseMrp, baseSelling, index) => {
-//   const mrp = baseMrp + index * 500
-//   const sellingPrice = baseSelling + index * 400
-
-//   return {
-//     mrp,
-//     sellingPrice,
-//     discountPercentage: exports.calculateDiscountPercentage(mrp, sellingPrice),
-//     currency: "INR"
-//   }
-// }
-
-
-
-const ProductPrice = require("../models/products/price.model")
-
-exports.upsert = async (productId, price, transaction) => {
-  const discountPercentage =
-    Math.round(((price.mrp - price.sellingPrice) / price.mrp) * 100)
-
-  const [row] = await ProductPrice.findOrCreate({
-    where: { productId },
+  const [row, created] = await ProductPrice.findOrCreate({
+    where: { variantId },  
     defaults: {
-      ...price,
-      discountPercentage,
-      currency: price.currency || "INR"
+      variantId,
+      ...calculatedPrice,
+      currency: price.currency || "INR",
     },
-    transaction
-  })
+    transaction,
+  });
 
-  return row.update(
-    { ...price, discountPercentage },
-    { transaction }
-  )
-}
+  // update if already exists
+  if (!created) {
+    await row.update(
+      {
+        productId,
+        ...calculatedPrice,
+        currency: price.currency || "INR",
+      },
+      { transaction }
+    );
+  }
+
+  return row;
+};
+
+
+/**
+ * Dynamic Price Calculation
+ * Admin can provide either sellingPrice OR discountPercentage
+ */
+exports.calculatePrice = ({ mrp, sellingPrice, discountPercentage }) => {
+
+  if (!mrp) {
+    throw new Error("MRP is required");
+  }
+
+  mrp = Number(mrp);
+
+  // CASE 1 → Admin gives discount %
+  if (discountPercentage !== undefined && discountPercentage !== null) {
+
+    discountPercentage = Number(discountPercentage);
+
+    sellingPrice = mrp - (mrp * discountPercentage) / 100;
+  }
+
+  // CASE 2 → Admin gives selling price
+  else if (sellingPrice !== undefined && sellingPrice !== null) {
+
+    sellingPrice = Number(sellingPrice);
+
+    discountPercentage = ((mrp - sellingPrice) / mrp) * 100;
+  }
+
+  else {
+    throw new Error("Either sellingPrice or discountPercentage must be provided");
+  }
+
+  return {
+    mrp,
+    sellingPrice: Math.round(sellingPrice),
+    discountPercentage: Math.round(discountPercentage),
+  };
+};

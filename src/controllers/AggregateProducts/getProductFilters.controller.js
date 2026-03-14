@@ -24,17 +24,17 @@ exports.getProductFilters = async (req, res) => {
 
     /* ---------------- CATEGORY TREE ---------------- */
     const categories = await Category.findAll({
-      attributes: ["id", "name"],
+      attributes: ["id", "name", "isActive"],
       include: [
         {
           model: SubCategory,
           as: "subcategories",
-          attributes: ["id", "name"],
+          attributes: ["id", "name", "isActive"],
           include: [
             {
               model: ProductCategory,
               as: "productCategories",
-              attributes: ["id", "name"],
+              attributes: ["id", "name", "isActive"],
             },
           ],
         },
@@ -56,13 +56,29 @@ exports.getProductFilters = async (req, res) => {
       }));
 
     /* ---------------- SIZES ---------------- */
-    const sizesRaw = await VariantSize.findAll({
-      attributes: ["size"],
-      group: ["size"],
-      raw: true,
-    });
+    // const sizesRaw = await VariantSize.findAll({
+    //   attributes: ["size"],
+    //   group: ["size"],
+    //   raw: true,
+    // });
 
-    const sizes = sizesRaw.map((s) => s.size).filter(Boolean);
+    // const sizes = sizesRaw.map((s) => s.size).filter(Boolean);
+
+    /* ---------------- SIZES ---------------- */
+const sizesRaw = await VariantSize.findAll({
+  attributes: ["diameter", "length"],
+  group: ["diameter", "length"],
+  raw: true,
+});
+
+const sizes = sizesRaw
+  .filter((s) => s.diameter && s.length)
+  .map((s) => ({
+    diameter: s.diameter,
+    length: s.length,
+    display: `M${s.diameter} × ${s.length}`,
+    value: `${s.diameter}-${s.length}`, // for filtering
+  }));
 
     /* ---------------- SPECS ---------------- */
     const specsRaw = await ProductSpec.findAll({

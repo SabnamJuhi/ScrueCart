@@ -206,7 +206,8 @@ exports.getAdminActiveOrders = async (req, res) => {
 
           variant: {
             color: item.ProductVariant?.colorName || null,
-            size: item.VariantSize?.size || null,
+            length: item.VariantSize?.length || null,
+            diameter: item.VariantSize?.diameter || null,
           },
 
           price: sellingPrice,

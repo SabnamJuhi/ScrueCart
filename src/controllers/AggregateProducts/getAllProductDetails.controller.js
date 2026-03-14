@@ -1,6 +1,5 @@
 // const sequelize = require("../../config/db");
 
-
 // const Product = require("../../models/products/product.model");
 // const ProductPrice = require("../../models/products/price.model");
 // const ProductSpec = require("../../models/products/productSpec.model");
@@ -8,12 +7,10 @@
 // const VariantImage = require("../../models/productVariants/variantImage.model");
 // const VariantSize = require("../../models/productVariants/variantSize.model");
 
-
 // const Offer = require("../../models/offers/offer.model");
 // const OfferSub = require("../../models/offers/offerSub.model");
 // const OfferApplicableCategory = require("../../models/offers/offerApplicableCategory.model");
 // const OfferApplicableProduct = require("../../models/offers/offerApplicableProduct.model");
-
 
 // const {
 // Category,
@@ -151,10 +148,6 @@
 //   }
 // };
 
-
-
-
-
 const sequelize = require("../../config/db");
 
 const Product = require("../../models/products/product.model");
@@ -170,11 +163,7 @@ const OfferApplicableProduct = require("../../models/offers/offerApplicableProdu
 
 const Wishlist = require("../../models/wishlist.model");
 
-const {
-  Category,
-  SubCategory,
-  ProductCategory,
-} = require("../../models");
+const { Category, SubCategory, ProductCategory } = require("../../models");
 const {
   getPaginationOptions,
   formatPagination,
@@ -183,8 +172,8 @@ const {
 exports.getAllProductsDetails = async (req, res) => {
   try {
     const userId = req.user?.id;
-     const paginationOptions = getPaginationOptions(req.query);
-      /* ---------------- DYNAMIC WHERE ---------------- */
+    const paginationOptions = getPaginationOptions(req.query);
+    /* ---------------- DYNAMIC WHERE ---------------- */
     const productWhere = {};
 
     if (req.query.isActive !== undefined) {
@@ -193,7 +182,7 @@ exports.getAllProductsDetails = async (req, res) => {
 
     /* ---------------- GET PRODUCTS ---------------- */
     const products = await Product.findAndCountAll({
-       where: productWhere,
+      where: productWhere,
       attributes: [
         "id",
         "sku",
@@ -209,7 +198,11 @@ exports.getAllProductsDetails = async (req, res) => {
       include: [
         { model: Category, as: "Category", attributes: ["id", "name"] },
         { model: SubCategory, as: "SubCategory", attributes: ["id", "name"] },
-        { model: ProductCategory, as: "ProductCategory", attributes: ["id", "name"] },
+        {
+          model: ProductCategory,
+          as: "ProductCategory",
+          attributes: ["id", "name"],
+        },
 
         { model: ProductPrice, as: "price" },
         { model: ProductSpec, as: "specs" },
@@ -228,8 +221,16 @@ exports.getAllProductsDetails = async (req, res) => {
             "isActive",
           ],
           include: [
-            { model: VariantImage, as: "images", attributes: ["id", "imageUrl"] },
-            { model: VariantSize, as: "sizes", attributes: ["id", "size", "stock", "chest"] },
+            {
+              model: VariantImage,
+              as: "images",
+              attributes: ["id", "imageUrl"],
+            },
+            {
+              model: VariantSize,
+              as: "sizes",
+              attributes: ["id", "length", "diameter", "stock"],
+            },
           ],
         },
 
@@ -255,15 +256,20 @@ exports.getAllProductsDetails = async (req, res) => {
                 {
                   model: OfferSub,
                   as: "subOffers",
-                  attributes: ["id", "discountType", "discountValue", "maxDiscount"],
+                  attributes: [
+                    "id",
+                    "discountType",
+                    "discountValue",
+                    "maxDiscount",
+                  ],
                 },
               ],
             },
           ],
         },
       ],
-        distinct: true, 
-        order: [["createdAt", "DESC"]],
+      distinct: true,
+      order: [["createdAt", "DESC"]],
       ...paginationOptions,
     });
 
@@ -286,20 +292,38 @@ exports.getAllProductsDetails = async (req, res) => {
 
     /* ---------------- ADD FLAGS ---------------- */
     const finalProducts = products.rows.map((p) => {
+      const productJSON = p.toJSON();
+      if (productJSON.variants) {
+        productJSON.variants = productJSON.variants.map((variant) => {
+          if (variant.sizes) {
+            variant.sizes = variant.sizes.map((size) => ({
+              id: size.id,
+              diameter: size.diameter,
+              length: size.length,
+              stock: size.stock,
+
+              // 👇 what frontend needs
+              display: `M${size.diameter} × ${size.length}`,
+              value: `${size.diameter}-${size.length}`,
+            }));
+          }
+          return variant;
+        });
+      }
       const productWishlisted = !!wishlistedMap[p.id];
 
       return {
-        ...p.toJSON(),
+         ...productJSON,
         isWishlisted: productWishlisted,
         wishlistedVariants: wishlistedMap[p.id] || [],
       };
     });
-   
+
     /* ---------------- FINAL PAGINATED RESPONSE ---------------- */
     const response = formatPagination(
       { count: products.count, rows: finalProducts }, // ✅ correct
       paginationOptions.currentPage,
-      paginationOptions.limit
+      paginationOptions.limit,
     );
 
     return res.json({

@@ -76,11 +76,32 @@ exports.sendDeliveryAssignmentEmail = async ({
 };
 
 
-// send mail to company
-exports.sendContactToCompany = async ({ name, email, phone, message }) => {
+// // send mail to company
+// exports.sendContactToCompany = async ({ name, email, phone, message }) => {
+//   return transporter.sendMail({
+//     from: `"Website Contact" <${process.env.EMAIL_USER}>`,
+//     to: process.env.EMAIL_USER, // company email
+//     subject: "New Contact Enquiry",
+//     html: `
+//       <h2>New Enquiry Received</h2>
+//       <p><b>Name:</b> ${name}</p>
+//       <p><b>Email:</b> ${email}</p>
+//       <p><b>Phone:</b> ${phone}</p>
+//       <p><b>Message:</b><br/> ${message}</p>
+//     `,
+//   });
+// };
+
+exports.sendContactToCompany = async ({
+  name,
+  email,
+  phone,
+  message,
+  attachments = [],
+}) => {
   return transporter.sendMail({
     from: `"Website Contact" <${process.env.EMAIL_USER}>`,
-    to: process.env.EMAIL_USER, // company email
+    to: process.env.EMAIL_USER,
     subject: "New Contact Enquiry",
     html: `
       <h2>New Enquiry Received</h2>
@@ -89,6 +110,7 @@ exports.sendContactToCompany = async ({ name, email, phone, message }) => {
       <p><b>Phone:</b> ${phone}</p>
       <p><b>Message:</b><br/> ${message}</p>
     `,
+    attachments,
   });
 };
 

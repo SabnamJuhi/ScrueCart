@@ -110,8 +110,6 @@ const {
 //   }
 // };
 
-
-
 exports.getCart = async (req, res) => {
   try {
     const userId = req.user.id;
@@ -181,6 +179,18 @@ exports.getCart = async (req, res) => {
           status, // ✅ dynamic
           isAvailable,
         },
+        sizes: item.variantSize
+          ? [
+              {
+                id: item.variantSize.id,
+                diameter: item.variantSize.diameter,
+                length: item.variantSize.length,
+                stock: item.variantSize.stock,
+                display: `M${item.variantSize.diameter} × ${item.variantSize.length}`,
+                value: `${item.variantSize.diameter}-${item.variantSize.length}`,
+              },
+            ]
+          : [],
 
         price: sellingPrice,
         quantity: validQuantity, // ✅ adjusted quantity
@@ -218,7 +228,6 @@ exports.getCart = async (req, res) => {
     });
   }
 };
-
 
 exports.addToCart = async (req, res) => {
   try {

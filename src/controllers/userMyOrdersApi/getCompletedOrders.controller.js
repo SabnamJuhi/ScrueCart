@@ -153,7 +153,7 @@ exports.getCompletedOrders = async (req, res) => {
             },
             {
               model: VariantSize,
-              attributes: ["id", "size"],
+              attributes: ["id", "length", "diameter"],
             },
           ],
         },

@@ -74,7 +74,10 @@ const Offer = require("../../models/offers/offer.model");
 const Wishlist = require("../../models/wishlist.model");
 const OfferApplicableProduct = require("../../models/offers/offerApplicableProduct.model");
 const { OfferSub } = require("../../models");
-const { getPaginationOptions, formatPagination } = require("../../utils/paginate");
+const {
+  getPaginationOptions,
+  formatPagination,
+} = require("../../utils/paginate");
 
 exports.searchProducts = async (req, res) => {
   try {
@@ -137,7 +140,7 @@ exports.searchProducts = async (req, res) => {
     ====================================================== */
 
     const products = await Product.findAll({
-      where: { id: productIds },
+      where: { id: productIds, isActive: true },
       include: [
         {
           model: Category,
@@ -173,7 +176,7 @@ exports.searchProducts = async (req, res) => {
             {
               model: VariantSize,
               as: "sizes",
-              attributes: ["id", "size", "stock", "chest"],
+              attributes: ["id", "diameter", "length", "stock"],
             },
           ],
         },
@@ -229,8 +232,20 @@ exports.searchProducts = async (req, res) => {
     const formattedProducts = products.map((product) => {
       const productJSON = product.toJSON();
 
+      // Format sizes display
+      if (productJSON.variants) {
+        productJSON.variants.forEach((variant) => {
+          if (variant.sizes) {
+            variant.sizes = variant.sizes.map((size) => ({
+              ...size,
+              displaySize: `M${size.diameter} × ${size.length}`,
+            }));
+          }
+        });
+      }
+
       const isWishlisted = wishlistData.some(
-        (item) => item.productId === product.id
+        (item) => item.productId === product.id,
       );
 
       const wishlistedVariants = wishlistData
@@ -251,14 +266,13 @@ exports.searchProducts = async (req, res) => {
     const response = formatPagination(
       { count, rows: formattedProducts },
       paginationOptions.currentPage,
-      paginationOptions.limit
+      paginationOptions.limit,
     );
 
     return res.json({
       success: true,
       ...response,
     });
-
   } catch (error) {
     console.error("Search Error:", error);
     return res.status(500).json({

@@ -1,5 +1,7 @@
 const Banner = require("../../models/banner/banner.model");
-const cloudinary = require("../../config/cloudinary");
+// const cloudinary = require("../../config/cloudinary");
+const fs = require("fs");
+const path = require("path");
 
 
 /* CREATE BANNER */
@@ -10,13 +12,14 @@ exports.createBanner = async (req, res) => {
     }
 
     const { title, subtitle, cta, link } = req.body;
+     const imagePath = `/uploads/products/${req.file.filename}`;
 
     const banner = await Banner.create({
       title,
       subtitle,
       cta,
       link,
-      imageUrl: req.file.path,
+      imageUrl: imagePath,
     });
 
     res.json({ success: true, data: banner, message: "Banner created" });
@@ -42,25 +45,82 @@ exports.getAllBanners = async (req, res) => {
 
 
 /* UPDATE BANNER */
+// exports.updateBanner = async (req, res) => {
+//   try {
+//     const banner = await Banner.findByPk(req.params.id);
+//     if (!banner) return res.status(404).json({ success: false, message: "Banner not found" });
+
+//     // if new image uploaded → delete old from cloudinary
+//     if (req.file) {
+//       await cloudinary.uploader.destroy(banner.publicId);
+
+//       banner.imageUrl = req.file.path;
+//     }
+
+//     const { title, subtitle, cta, link, isActive } = req.body;
+
+//     await banner.update({ title, subtitle, cta, link, isActive });
+
+//     res.json({ success: true, data: banner, message: "Banner updated" });
+//   } catch (err) {
+//     res.status(500).json({ success: false, message: "Update failed" });
+//   }
+// };
+
+
+/* UPDATE BANNER */
 exports.updateBanner = async (req, res) => {
   try {
     const banner = await Banner.findByPk(req.params.id);
-    if (!banner) return res.status(404).json({ success: false, message: "Banner not found" });
 
-    // if new image uploaded → delete old from cloudinary
+    if (!banner) {
+      return res.status(404).json({
+        success: false,
+        message: "Banner not found",
+      });
+    }
+
+    // ✅ If new image uploaded
     if (req.file) {
-      await cloudinary.uploader.destroy(banner.publicId);
+      // Delete old image from local storage
+      if (banner.imageUrl) {
+        const oldImagePath = path.join(
+          __dirname,
+          "../../",
+          banner.imageUrl
+        );
 
-      banner.imageUrl = req.file.path;
+        if (fs.existsSync(oldImagePath)) {
+          fs.unlinkSync(oldImagePath);
+        }
+      }
+
+      // Save new image path
+      banner.imageUrl = `/uploads/products/${req.file.filename}`;
     }
 
     const { title, subtitle, cta, link, isActive } = req.body;
 
-    await banner.update({ title, subtitle, cta, link, isActive });
+    await banner.update({
+      title,
+      subtitle,
+      cta,
+      link,
+      isActive,
+      imageUrl: banner.imageUrl,
+    });
 
-    res.json({ success: true, data: banner, message: "Banner updated" });
+    res.json({
+      success: true,
+      data: banner,
+      message: "Banner updated",
+    });
   } catch (err) {
-    res.status(500).json({ success: false, message: "Update failed" });
+    res.status(500).json({
+      success: false,
+      message: "Update failed",
+      error: err.message,
+    });
   }
 };
 

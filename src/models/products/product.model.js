@@ -11,16 +11,8 @@ Product.init(
       autoIncrement: true,
     },
     sku: {
-      type: DataTypes.VIRTUAL,
-      get() {
-        const categoryCode = this.Category?.code || "CAT";
-        const subCode = this.SubCategory?.code || "SUB";
-        const prodCatCode = this.ProductCategory?.code || "PRD";
-
-        const paddedId = String(this.id).padStart(6, "0");
-
-        return `${categoryCode}-${subCode}-${prodCatCode}-${paddedId}`;
-      },
+      type: DataTypes.STRING,
+      unique: true,
     },
 
     title: {
@@ -52,13 +44,22 @@ Product.init(
       type: DataTypes.STRING,
     },
     gstRate: {
-      type: DataTypes.DECIMAL(5, 2), // 5.00, 12.00, 18.00, 28.00
+      type: DataTypes.DECIMAL(5, 2), 
       allowNull: false,
       defaultValue: 0,
     },
     isActive: {
       type: DataTypes.BOOLEAN,
       defaultValue: true,
+    },
+     wishlistCount: {
+      type: DataTypes.INTEGER,
+      defaultValue: 0,
+    },
+    soldCount: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      defaultValue: 0,
     },
   },
   {

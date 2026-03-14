@@ -5,12 +5,21 @@ const passport = require("passport")
 require("./config/passport");
 
 const app = express()
-app.use(cors())
+app.use(
+  cors({
+    origin: [
+      "http://localhost:5173",
+      "https://screwkart.in",
+    ],
+    credentials: true,
+  })
+);
 app.use(express.json());
 app.use(passport.initialize());
 
 
 app.use("/uploads", express.static(path.join(__dirname, "../uploads")));
+// app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
 app.use("/api/admin", require("./routes/admin.auth.routes"))
 app.use("/api/auth", require("./routes/user.auth.routes"));

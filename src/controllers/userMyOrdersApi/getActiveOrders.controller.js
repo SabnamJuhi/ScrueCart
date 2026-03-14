@@ -166,7 +166,8 @@ exports.getActiveOrders = async (req, res) => {
 
           variant: {
             color: item.ProductVariant?.colorName || null,
-            size: item.VariantSize?.size || null,
+            length: item.VariantSize?.length || null,
+            diameter: item.VariantSize?.diameter || null,
           },
 
           price: sellingPrice,
@@ -214,7 +215,7 @@ exports.getActiveOrders = async (req, res) => {
     /* 🔹 Format Pagination */
     const response = formatPagination(
       {
-        count: orders.count, 
+        count: orders.count,
         rows: formattedOrders,
       },
       paginationOptions.currentPage,

@@ -2,8 +2,8 @@ const express = require("express")
 const router = express.Router()
 
 const productController = require("../../controllers/product.aggregate.controller")
-// const upload = require('../../middleware/upload');
-const upload = require("../../middleware/uploadCloudinary");
+const upload = require('../../middleware/upload');
+// const upload = require("../../middleware/uploadCloudinary");
 const { createProduct } = require("../../controllers/AggregateProducts/createProductDetails.controller");
 const { updateProductDetails } = require("../../controllers/AggregateProducts/updateProductDetails.controller");
 const { softDeleteProduct } = require("../../controllers/AggregateProducts/softDeleteProductDetails.controller");

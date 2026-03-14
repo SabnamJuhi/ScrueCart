@@ -85,7 +85,7 @@ exports.getWishlist = async (req, res) => {
             {
               model: VariantSize,
               as: "sizes",
-              attributes: ["id", "size", "stock"],
+              attributes: ["id", "length", "stock", "diameter"],
               required: false,
             },
           ],
@@ -145,8 +145,9 @@ exports.getWishlist = async (req, res) => {
           sizes:
             variant.sizes?.map((s) => ({
               sizeId: s.id,
-              size: s.size,
+              length: s.length,
               stock: s.stock,
+              diameter: s.diameter,
               inStock: s.stock > 0,
             })) || [],
         },

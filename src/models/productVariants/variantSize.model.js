@@ -15,13 +15,18 @@ VariantSize.init(
       type: DataTypes.INTEGER,
       allowNull: false
     },
-    size: {
-      type: DataTypes.STRING,
+     length: {
+      type: DataTypes.INTEGER,
       allowNull: false
     },
-    chest: {
-      type: DataTypes.STRING
+    diameter: {
+      type: DataTypes.INTEGER
     },
+     approxWeightKg: {
+      type: DataTypes.DECIMAL(10,2), 
+      allowNull: true
+    },
+
     stock: {
       type: DataTypes.INTEGER,
       defaultValue: 0

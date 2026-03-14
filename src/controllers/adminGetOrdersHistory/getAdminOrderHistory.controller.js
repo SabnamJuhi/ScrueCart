@@ -35,12 +35,6 @@
 //   }
 // };
 
-
-
-
-
-
-
 // const {
 //   Order,
 //   OrderAddress,
@@ -140,9 +134,6 @@
 //   }
 // };
 
-
-
-
 const {
   Order,
   OrderAddress,
@@ -179,12 +170,8 @@ exports.getAdminOrderHistory = async (req, res) => {
           model: OrderItem,
           include: [
             {
-              model: Product, 
-               attributes: [
-                  "id",
-                  "title",
-                  "sku",       
-                ],
+              model: Product,
+              attributes: ["id", "title", "sku"],
               include: [{ model: ProductPrice, as: "price" }],
             },
             {
@@ -198,7 +185,7 @@ exports.getAdminOrderHistory = async (req, res) => {
         },
       ],
       // order: [["createdAt", "DESC"]],
-        distinct: true, // 🔥 VERY IMPORTANT with includes
+      distinct: true, // 🔥 VERY IMPORTANT with includes
       ...paginationOptions,
     });
 
@@ -217,7 +204,8 @@ exports.getAdminOrderHistory = async (req, res) => {
 
           variant: {
             color: item.ProductVariant?.colorName || null,
-            size: item.VariantSize?.size || null,
+            length: item.VariantSize?.length || null,
+            diameter: item.VariantSize?.diameter || null,
           },
 
           price: sellingPrice,
@@ -269,10 +257,10 @@ exports.getAdminOrderHistory = async (req, res) => {
     const response = formatPagination(
       { count: orders.count, rows: formattedOrders },
       paginationOptions.currentPage,
-      paginationOptions.limit
+      paginationOptions.limit,
     );
     res.json({
-       success: true,
+      success: true,
       ...response,
     });
   } catch (err) {

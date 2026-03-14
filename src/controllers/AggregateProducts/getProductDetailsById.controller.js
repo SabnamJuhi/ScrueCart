@@ -1,6 +1,5 @@
 const sequelize = require("../../config/db");
 
-
 const Product = require("../../models/products/product.model");
 const ProductPrice = require("../../models/products/price.model");
 const ProductSpec = require("../../models/products/productSpec.model");
@@ -8,21 +7,18 @@ const ProductVariant = require("../../models/productVariants/productVariant.mode
 const VariantImage = require("../../models/productVariants/variantImage.model");
 const VariantSize = require("../../models/productVariants/variantSize.model");
 
-
 const Offer = require("../../models/offers/offer.model");
 const OfferSub = require("../../models/offers/offerSub.model");
 const OfferApplicableCategory = require("../../models/offers/offerApplicableCategory.model");
 const OfferApplicableProduct = require("../../models/offers/offerApplicableProduct.model");
 
-
 const {
-Category,
-SubCategory,
-ProductCategory,
-ProductRating,
-ProductReview,
+  Category,
+  SubCategory,
+  ProductCategory,
+  ProductRating,
+  ProductReview,
 } = require("../../models");
-
 
 exports.getProductById = async (req, res) => {
   try {
@@ -110,7 +106,7 @@ exports.getProductById = async (req, res) => {
             {
               model: VariantSize,
               as: "sizes",
-              attributes: ["id", "size", "stock", "chest"],
+              attributes: ["id", "length", "stock", "diameter"],
             },
           ],
         },
@@ -160,9 +156,26 @@ exports.getProductById = async (req, res) => {
       });
     }
 
+    const productData = product.toJSON();
+// format sizes properly
+productData.variants = productData.variants.map((variant) => {
+  variant.sizes = variant.sizes.map((size) => ({
+    id: size.id,
+    diameter: size.diameter,
+    length: size.length,
+    stock: size.stock,
+
+    // 🔥 what frontend needs
+    display: `M${size.diameter} × ${size.length}`,
+    value: `${size.diameter}-${size.length}`,
+  }));
+
+  return variant;
+});
+
     return res.json({
       success: true,
-      data: product,
+      data: productData,
     });
   } catch (error) {
     console.error("GET PRODUCT ERROR:", error);
